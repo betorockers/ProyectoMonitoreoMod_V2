@@ -39,31 +39,79 @@ def detect_chrome_executable() -> str:
 
 def get_chrome_version_main() -> Optional[int]:
     """Obtiene la versión principal (Major Version) del ejecutable de Chrome en el host."""
+    import re
+    
+    # 1. Estrategia prioritaria en Windows: Consulta nativa del Registro de Windows (winreg)
+    if os.name == 'nt':
+        try:
+            import winreg
+            # Intentar primero en HKEY_CURRENT_USER
+            try:
+                key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Google\Chrome\BLBeacon")
+                version_str, _ = winreg.QueryValueEx(key, "version")
+                winreg.CloseKey(key)
+                match = re.search(r'(\d+)\.', version_str)
+                if match:
+                    return int(match.group(1))
+            except Exception:
+                pass
+            
+            # Intentar luego en HKEY_LOCAL_MACHINE
+            try:
+                key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Google Chrome")
+                version_str, _ = winreg.QueryValueEx(key, "version")
+                winreg.CloseKey(key)
+                match = re.search(r'(\d+)\.', version_str)
+                if match:
+                    return int(match.group(1))
+            except Exception:
+                pass
+        except Exception:
+            pass
+
+    # 2. Estrategias de Fallback (vía subprocesos)
     chrome_path = detect_chrome_executable()
     if not os.path.exists(chrome_path):
         return None
-    try:
-        import subprocess
-        import re
-        if os.name == 'nt':
-            # Intentar wmic primero (rápido y compatible con Win7/10/11)
+
+    # Fallback A: PowerShell (Get-Item VersionInfo)
+    if os.name == 'nt':
+        try:
+            import subprocess
+            ps_cmd = f'(Get-Item "{chrome_path}").VersionInfo.ProductVersion'
+            version_str = subprocess.check_output(
+                ["powershell", "-Command", ps_cmd], 
+                text=True, stderr=subprocess.DEVNULL, timeout=5
+            ).strip()
+            match = re.search(r'(\d+)\.', version_str)
+            if match:
+                return int(match.group(1))
+        except Exception:
+            pass
+
+        # Fallback B: wmic (si está habilitado en Windows antiguos o enterprise)
+        try:
+            import subprocess
             escaped_path = chrome_path.replace("\\", "\\\\")
             cmd = f'wmic datafile where name="{escaped_path}" get version'
-            out = subprocess.check_output(cmd, shell=True, text=True, stderr=subprocess.DEVNULL)
+            out = subprocess.check_output(cmd, shell=True, text=True, stderr=subprocess.DEVNULL, timeout=5)
             version_str = "".join(out.splitlines()).replace("Version", "").strip()
-            
-            # Fallback a powershell si wmic falla
-            if not version_str:
-                ps_cmd = f'(Get-Item "{chrome_path}").VersionInfo.ProductVersion'
-                version_str = subprocess.check_output(["powershell", "-Command", ps_cmd], text=True, stderr=subprocess.DEVNULL).strip()
-        else:
-            version_str = subprocess.check_output([chrome_path, "--version"], text=True, stderr=subprocess.DEVNULL).strip()
-        
-        match = re.search(r'(\d+)\.', version_str)
-        if match:
-            return int(match.group(1))
-    except Exception:
-        pass
+            match = re.search(r'(\d+)\.', version_str)
+            if match:
+                return int(match.group(1))
+        except Exception:
+            pass
+    else:
+        # Fallback para Linux/macOS
+        try:
+            import subprocess
+            version_str = subprocess.check_output([chrome_path, "--version"], text=True, stderr=subprocess.DEVNULL, timeout=5).strip()
+            match = re.search(r'(\d+)\.', version_str)
+            if match:
+                return int(match.group(1))
+        except Exception:
+            pass
+
     return None
 
 @contextlib.contextmanager
