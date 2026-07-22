@@ -14,10 +14,8 @@ import contextlib
 import dns.resolver
 from typing import Dict, Any, Optional
 
-# Versi\u00f3n m\u00ednima de Chrome requerida. undetected-chromedriver intentar\u00e1 hacer match
-# con la versi\u00f3n real instalada en el sistema. Este valor es el fallback si la
-# autodetección falla. Actualizar si Chrome se actualiza a major > 136.
-_CHROME_VERSION = 136
+# Versión mínima de Chrome requerida. El sistema reporta versión 150 en la máquina del usuario.
+_CHROME_VERSION = 150
 
 def format_rut_with_dots(rut_raw: str) -> str:
     """Formatea un RUT a su representación canónica con puntos y guion (e.g. 16.691.169-9)."""

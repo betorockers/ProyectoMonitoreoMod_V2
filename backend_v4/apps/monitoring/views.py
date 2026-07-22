@@ -116,9 +116,50 @@ def tactical_map_partial(request):
 def event_history_partial(request):
     """Fragmento parcial HTMX para el Historial de Eventos y Latencia Global."""
     from .models import MonitoringEvent, TargetNode
+    from django.utils import timezone
+    import datetime
+
     nodes = TargetNode.objects.all()
     events = MonitoringEvent.objects.all()[:50]
-    return render(request, 'monitoring/partials/event_history.html', {'nodes': nodes, 'events': events})
+
+    # Calcular Uptime REAL de las últimas 24 horas para cada equipo
+    now = timezone.now()
+    since = now - datetime.timedelta(hours=24)
+    total_seconds = 24.0 * 3600.0
+
+    nodes_with_uptime = []
+    for node in nodes:
+        node_events = list(MonitoringEvent.objects.filter(
+            node=node,
+            created_at__gte=since
+        ).order_by('created_at'))
+
+        if not node_events:
+            # Sin eventos registrados: depende de su estado actual
+            uptime = 100.0 if node.status == 'online' else 0.0
+        else:
+            offline_seconds = 0.0
+            last_down = None
+
+            for ev in node_events:
+                if ev.event_type == 'node_down':
+                    last_down = ev.created_at
+                elif ev.event_type == 'node_up' and last_down:
+                    offline_seconds += (ev.created_at - last_down).total_seconds()
+                    last_down = None
+
+            # Si sigue caído al final del día
+            if last_down:
+                offline_seconds += (now - last_down).total_seconds()
+
+            offline_seconds = min(offline_seconds, total_seconds)
+            uptime = 100.0 * (1.0 - (offline_seconds / total_seconds))
+            uptime = round(max(0.0, min(100.0, uptime)), 1)
+
+        node.real_uptime = uptime
+        nodes_with_uptime.append(node)
+
+    return render(request, 'monitoring/partials/event_history.html', {'nodes': nodes_with_uptime, 'events': events})
 
 def pdf_report_panel_partial(request):
     """Fragmento parcial HTMX para descarga de plantilla JSON y Reporte PDF."""

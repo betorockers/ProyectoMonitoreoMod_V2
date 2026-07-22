@@ -8,8 +8,11 @@
             {% for node in nodes %}
             <div class="gauge-item">
                 <div class="gauge-title">{{ node.label }}</div>
-                <div style="width: 160px; height: 90px; position: relative;">
+                <div style="width: 160px; height: 90px; position: relative; display: flex; justify-content: center; align-items: flex-end;">
                     <canvas id="gauge-{{ node.id }}"></canvas>
+                    <div style="position: absolute; bottom: 8px; font-family: 'Orbitron', sans-serif; font-size: 1.15rem; font-weight: 700; color: #00f3ff; text-shadow: 0 0 8px rgba(0, 243, 255, 0.4); letter-spacing: 0.5px;">
+                        <span id="gauge-text-{{ node.id }}">--%</span>
+                    </div>
                 </div>
             </div>
             {% empty %}
@@ -97,17 +100,30 @@
         // Gauge para {{ node.label }}
         const ctx_{{ node.id }} = document.getElementById('gauge-{{ node.id }}')?.getContext('2d');
         if (ctx_{{ node.id }} && !ctx_{{ node.id }}.chart) {
-            let avail = {{ node.status|yesno:"100,0,50" }}; // Simplificado
-            if ("{{ node.status }}" === "online") avail = 100;
-            else if ("{{ node.status }}" === "unstable") avail = 50;
-            else avail = 0;
+            let avail = parseFloat('{{ node.real_uptime|default:100.0 }}');
+            
+            // Colores correspondientes al estado real del Uptime
+            let gaugeColor = '#00f3ff'; // Default Cyan (Uptime >= 99%)
+            if (avail < 95.0) {
+                gaugeColor = '#ff007f'; // Magenta / Rojo para caídas significativas (Uptime < 95%)
+            } else if (avail < 99.0) {
+                gaugeColor = '#eab308'; // Amarillo/Oro para inestables (Uptime < 99%)
+            }
+
+            // Actualizar el overlay de texto
+            const textEl = document.getElementById('gauge-text-{{ node.id }}');
+            if (textEl) {
+                textEl.innerText = avail + '%';
+                textEl.style.color = gaugeColor;
+                textEl.style.textShadow = `0 0 8px ${gaugeColor}60`;
+            }
 
             new Chart(ctx_{{ node.id }}, {
                 type: 'doughnut',
                 data: {
                     datasets: [{
                         data: [avail, 100 - avail],
-                        backgroundColor: ['#00e5ff', '#0d3142'],
+                        backgroundColor: [gaugeColor, 'rgba(13, 49, 66, 0.5)'],
                         borderWidth: 0
                     }]
                 },
