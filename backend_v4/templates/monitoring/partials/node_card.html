@@ -1,0 +1,49 @@
+<div id="node-card-{{ node.id }}" 
+     class="node-card {% if node.status == 'online' %}online{% elif node.status == 'unstable' %}unstable{% else %}offline{% endif %} state-change-flash"
+     {% if oob %}hx-swap-oob="true"{% endif %}>
+    
+    <!-- Título de la Tarjeta -->
+    <div class="node-card-title" style="font-size: 0.95rem; position: relative; {% if node.status == 'online' %}color: var(--mint-accent);{% elif node.status == 'unstable' %}color: var(--orange-warning);{% else %}color: var(--red-alert);{% endif %}">
+        {{ node.label }}
+        {% if node.is_offline_long %}
+        <div style="position: absolute; right: 0; top: 50%; transform: translateY(-50%); width: 12px; height: 12px; border-radius: 50%; background-color: red; box-shadow: 0 0 8px red; animation: pulse 1s infinite;"></div>
+        {% endif %}
+    </div>
+    
+    <!-- Ícono y Texto de Estado -->
+    <div style="margin: 8px 0;">
+        {% if node.status == 'online' %}
+            <div class="node-status-icon" style="font-size: 1.5rem;">✓</div>
+            <div class="node-status-text" style="font-size: 0.8rem; text-transform: capitalize;">Online</div>
+        {% elif node.status == 'unstable' %}
+            <div class="node-status-icon" style="font-size: 1.5rem;">🕒</div>
+            <div class="node-status-text" style="font-size: 0.8rem; text-transform: capitalize;">Inestable</div>
+        {% else %}
+            <div class="node-status-icon" style="font-size: 1.5rem;">ⓧ</div>
+            <div class="node-status-text" style="font-size: 0.8rem; text-transform: capitalize;">Offline</div>
+        {% endif %}
+    </div>
+
+    <!-- Metadatos de Red -->
+    <div class="node-card-meta" style="background: rgba(0,0,0,0.4); padding: 8px; border-radius: 4px; width: 100%; text-align: left; font-family: 'Courier New', monospace; font-size: 0.7rem;">
+        <div style="margin-bottom: 4px;">IP: {{ node.host }}</div>
+        <div style="margin-bottom: 4px;">MAC: {{ node.mac_address|default:"00:00:00:00:00:00" }}</div>
+        <div>LAT: {{ node.latency_ms|floatformat:1 }} ms</div>
+    </div>
+</div>
+
+<style>
+/* Animación suave de destello en el borde ante cambios de estado */
+.state-change-flash {
+    animation: border-flash 2.5s ease-out;
+}
+@keyframes border-flash {
+    0% {
+        box-shadow: 0 0 25px {% if node.status == 'online' %}var(--mint-accent){% else %}var(--red-alert){% endif %};
+        border-color: {% if node.status == 'online' %}var(--mint-accent){% else %}var(--red-alert){% endif %};
+    }
+    100% {
+        box-shadow: none;
+    }
+}
+</style>

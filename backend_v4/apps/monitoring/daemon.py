@@ -59,7 +59,8 @@ class TelemetryDaemon(threading.Thread):
                                         try:
                                             toast_queue.put_nowait({
                                                 'message': f'⚠️ Alerta: Nodo {node.label} está OFFLINE',
-                                                'status': 'offline'
+                                                'status': 'offline',
+                                                'node_id': node.id
                                             })
                                         except queue.Full:
                                             pass
@@ -74,7 +75,8 @@ class TelemetryDaemon(threading.Thread):
                                         try:
                                             toast_queue.put_nowait({
                                                 'message': f'✅ Recuperado: Nodo {node.label} está ONLINE',
-                                                'status': 'online'
+                                                'status': 'online',
+                                                'node_id': node.id
                                             })
                                         except queue.Full:
                                             pass

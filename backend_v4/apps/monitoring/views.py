@@ -342,16 +342,55 @@ def generate_pdf_report(request):
 
 def check_monitoring_updates(request):
     """
-    Endpoint ultraligero que verifica si hay actualizaciones en toast_queue.
-    Retorna HTTP 204 (No Content) si no hay cambios.
-    Retorna HTTP 200 con la cabecera 'HX-Trigger: refreshNodeGrid' si hay cambios de estado.
+    Endpoint ultraligero que verifica actualizaciones en toast_queue.
+    Si hay cambios, extrae los elementos y retorna individualmente las tarjetas de nodos 
+    y notificaciones toast modificadas mediante HTMX Out-of-Band (OOB) swapping.
     """
+    import queue
     from apps.monitoring.daemon import toast_queue
-    if not toast_queue.empty():
-        # Respondemos con el trigger de HTMX para recargar la grilla
-        response = HttpResponse(status=200)
-        response['HX-Trigger'] = 'refreshNodeGrid'
-        return response
+    from django.template.loader import render_to_string
+    
+    if toast_queue.empty():
+        return HttpResponse(status=204)
+        
+    html_payload = []
+    processed_node_ids = set()
+    
+    try:
+        while True:
+            msg_data = toast_queue.get_nowait()
+            node_id = msg_data.get('node_id')
+            msg_text = msg_data.get('message')
+            status = msg_data.get('status')
+            
+            # 1. Renderizar la tarjeta del nodo afectada de forma OOB (si se indica)
+            if node_id and node_id not in processed_node_ids:
+                try:
+                    node = TargetNode.objects.get(id=node_id)
+                    node_html = render_to_string(
+                        'monitoring/partials/node_card.html', 
+                        {'node': node, 'oob': True}
+                    )
+                    html_payload.append(node_html)
+                    processed_node_ids.add(node_id)
+                except TargetNode.DoesNotExist:
+                    pass
+            
+            # 2. Renderizar el toast OOB para que aparezca en el contenedor general
+            if msg_text:
+                toast_html = render_to_string(
+                    'security/partials/_config_toast.html',
+                    {'message': msg_text, 'status': status}
+                )
+                # Envolver en un div con hx-swap-oob="beforeend:#toast-container"
+                wrapped_toast = f'<div hx-swap-oob="beforeend:#toast-container">{toast_html}</div>'
+                html_payload.append(wrapped_toast)
+                
+    except queue.Empty:
+        pass
+        
+    if html_payload:
+        return HttpResponse("\n".join(html_payload), content_type="text/html")
     return HttpResponse(status=204)
 
 
