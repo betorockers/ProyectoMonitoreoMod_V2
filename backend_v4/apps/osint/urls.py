@@ -17,4 +17,5 @@ urlpatterns = [
     path('subdominios/', views.query_subdominios_partial, name='query_subdominios_partial'),
     path('email/', views.query_email_partial, name='query_email_partial'),
     path('traceroute/', views.query_traceroute_partial, name='query_traceroute_partial'),
+    path('lan_scan/', views.query_lan_scan_partial, name='query_lan_scan_partial'),
 ]

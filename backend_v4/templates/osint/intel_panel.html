@@ -37,6 +37,7 @@
             <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                 <button @click="osintSubTab = 'email'" :class="{ 'active': osintSubTab === 'email' }" class="btn-cyber-tab">✉️ Email</button>
                 <button @click="osintSubTab = 'traceroute'" :class="{ 'active': osintSubTab === 'traceroute' }" class="btn-cyber-tab">🧭 Traceroute</button>
+                <button @click="osintSubTab = 'lan_scan'" :class="{ 'active': osintSubTab === 'lan_scan' }" class="btn-cyber-tab">🛡️ Escáner Seguridad LAN</button>
             </div>
         </div>
 
@@ -262,6 +263,23 @@
                 <div id="traceroute-results">
                     <div class="hud-panel" style="padding: 30px; text-align: center; color: #64748b;">
                         <div style="font-size: 2rem; margin-bottom: 8px;">📡</div><div style="font-size: 0.9rem; letter-spacing: 1px;">INGRESE TARGET PARA OBTENER RESULTADOS TÁCTICOS.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- LAN Scan Module -->
+            <div x-show="osintSubTab === 'lan_scan'" x-cloak>
+                <div class="hud-panel" style="padding: 20px; background: rgba(2, 6, 14, 0.95); margin-bottom: 24px;">
+                    <form hx-get="{% url 'query_lan_scan_partial' %}" hx-target="#lan-scan-results" hx-indicator="#loader-lan-scan" style="display: flex; gap: 12px; align-items: center;">
+                        <div style="flex: 2;"><input type="text" name="subnet" placeholder="Ingrese Subred (ej. 10.88.22 o deje en blanco para autodetección)" class="input-cyber"></div>
+                        <div style="flex: 1;"><input type="number" name="max_hosts" value="60" min="1" max="254" class="input-cyber"></div>
+                        <button type="submit" class="btn-cyber" style="padding: 12px 32px;"><span>🔍 INICIAR ESCÁNER SEGURIDAD LAN</span></button>
+                    </form>
+                    <div id="loader-lan-scan" class="htmx-indicator" style="margin-top: 14px; text-align: center; color: var(--cyan-glow); font-weight: 700; font-size: 0.9rem; letter-spacing: 1.5px;">⚡ ESCANEANDO SUBRED LOCAL Y AUDITANDO PUERTOS EN PARALELO (puede tardar hasta 40s)...</div>
+                </div>
+                <div id="lan-scan-results">
+                    <div class="hud-panel" style="padding: 30px; text-align: center; color: #64748b;">
+                        <div style="font-size: 2rem; margin-bottom: 8px;">🛡️</div><div style="font-size: 0.9rem; letter-spacing: 1px;">INICIE EL ESCANEO PARA DETECTAR VULNERABILIDADES, PUERTOS EXPUESTOS Y PROTOCOLOS INSEGUROS (COMO TELNET/SMB) EN SU RED LOCAL.</div>
                     </div>
                 </div>
             </div>

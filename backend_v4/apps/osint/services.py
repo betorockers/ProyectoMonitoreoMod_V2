@@ -441,3 +441,167 @@ def query_traceroute(target: str) -> Dict[str, Any]:
         }
     except Exception as e:
         return {"error": f"Fallo al trazar ruta: {str(e)}"}
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# ESCÁNER LAN DE SEGURIDAD — Detecta hosts activos y servicios inseguros
+# ────────────────────────────────────────────────────────────────────────────
+import socket
+import ipaddress
+import concurrent.futures
+
+# Puertos a auditar con su nivel de riesgo y descripción
+_AUDIT_PORTS = [
+    (21,   "FTP",            "ALTO",   "Transferencia de archivos sin cifrado"),
+    (22,   "SSH",            "INFO",   "Acceso remoto seguro (verificar config)"),
+    (23,   "Telnet",         "CRITICO","Administración remota SIN CIFRADO"),
+    (25,   "SMTP",           "ALTO",   "Servidor de correo — posible relay abierto"),
+    (80,   "HTTP",           "MEDIO",  "Web sin cifrado TLS"),
+    (135,  "MSRPC",          "MEDIO",  "RPC Windows — vector de ataques"),
+    (139,  "NetBIOS",        "MEDIO",  "Compartición de archivos Windows"),
+    (443,  "HTTPS",          "INFO",   "Web cifrada — OK"),
+    (445,  "SMB",            "ALTO",   "Compartición SMB — riesgo WannaCry/EternalBlue"),
+    (3389, "RDP",            "ALTO",   "Escritorio remoto expuesto"),
+    (8080, "HTTP-Alt",       "MEDIO",  "Servicio web alternativo"),
+    (8443, "HTTPS-Alt",      "INFO",   "Web cifrada alternativa"),
+    (1433, "MSSQL",          "ALTO",   "Base de datos SQL Server expuesta"),
+    (3306, "MySQL",          "ALTO",   "Base de datos MySQL expuesta"),
+    (5432, "PostgreSQL",     "ALTO",   "Base de datos PostgreSQL expuesta"),
+    (6379, "Redis",          "CRITICO","Redis sin auth — base de datos expuesta"),
+    (27017,"MongoDB",        "CRITICO","MongoDB sin auth — base de datos expuesta"),
+    (161,  "SNMP",           "ALTO",   "Protocolo de gestión de red — info sensible"),
+    (2049, "NFS",            "ALTO",   "Network File System — archivos en red"),
+    (5900, "VNC",            "ALTO",   "Control remoto VNC — posible sin contraseña"),
+]
+
+_RISK_ORDER = {"CRITICO": 0, "ALTO": 1, "MEDIO": 2, "INFO": 3}
+
+
+def _tcp_probe(ip: str, port: int, timeout: float = 0.6) -> bool:
+    """Intenta conexión TCP. Retorna True si el puerto está abierto."""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(timeout)
+            return s.connect_ex((ip, port)) == 0
+    except Exception:
+        return False
+
+
+def _icmp_alive(ip: str) -> bool:
+    """Detecta si un host está activo via ping (Windows/Linux)."""
+    try:
+        flag = "-n" if os.name == "nt" else "-c"
+        r = subprocess.run(
+            ["ping", flag, "1", "-w", "300", ip],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            timeout=2
+        )
+        return r.returncode == 0
+    except Exception:
+        return False
+
+
+def _reverse_dns(ip: str) -> str:
+    """Resuelve hostname reverso para una IP."""
+    try:
+        return socket.gethostbyaddr(ip)[0]
+    except Exception:
+        return ""
+
+
+def _scan_host(ip: str) -> Optional[dict]:
+    """
+    Escanea un host: detecta si está activo y luego audita puertos.
+    Retorna None si el host no responde.
+    """
+    # Comprobación rápida: primero intenta ICMP, luego TCP en puerto 80 o 443
+    alive = _icmp_alive(ip)
+    if not alive:
+        # Fallback TCP para hosts que bloquean ICMP
+        alive = _tcp_probe(ip, 80, timeout=0.4) or _tcp_probe(ip, 443, timeout=0.4) \
+                or _tcp_probe(ip, 22, timeout=0.4) or _tcp_probe(ip, 445, timeout=0.4)
+    if not alive:
+        return None
+
+    hostname = _reverse_dns(ip)
+    open_ports = []
+    for port, service, risk, desc in _AUDIT_PORTS:
+        if _tcp_probe(ip, port):
+            open_ports.append({
+                "port":    port,
+                "service": service,
+                "risk":    risk,
+                "desc":    desc,
+            })
+
+    # Calcular riesgo máximo del host
+    if open_ports:
+        max_risk = min(open_ports, key=lambda p: _RISK_ORDER[p["risk"]])["risk"]
+    else:
+        max_risk = "INFO"
+
+    return {
+        "ip":         ip,
+        "hostname":   hostname or "—",
+        "alive":      True,
+        "open_ports": open_ports,
+        "max_risk":   max_risk,
+    }
+
+
+def scan_lan_security(subnet: str = "", max_hosts: int = 60) -> dict:
+    """
+    Escanea la subred local en busca de hosts activos y servicios inseguros.
+
+    Args:
+        subnet: Prefijo de red (ej. "10.88.22"). Si vacío, autodetecta la LAN.
+        max_hosts: Máximo número de IPs a probar (.1 → .max_hosts).
+
+    Returns:
+        dict con claves: subnet, hosts_escaneados, hosts_activos, hallazgos, resumen
+    """
+    # Auto-detección de subred local si no se provee
+    if not subnet:
+        try:
+            hostname = socket.gethostname()
+            local_ip = socket.gethostbyname(hostname)
+            parts = local_ip.rsplit(".", 1)
+            subnet = parts[0]
+        except Exception:
+            subnet = "192.168.1"
+
+    targets = [f"{subnet}.{i}" for i in range(1, min(max_hosts + 1, 255))]
+
+    hallazgos = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=40) as executor:
+        futures = {executor.submit(_scan_host, ip): ip for ip in targets}
+        for future in concurrent.futures.as_completed(futures):
+            result = future.result()
+            if result:
+                hallazgos.append(result)
+
+    # Ordenar: primero por riesgo, luego por IP
+    hallazgos.sort(key=lambda h: (_RISK_ORDER.get(h["max_risk"], 99),
+                                   [int(x) for x in h["ip"].split(".")]))
+
+    # Resumen de vulnerabilidades
+    criticos  = [h for h in hallazgos if h["max_risk"] == "CRITICO"]
+    altos     = [h for h in hallazgos if h["max_risk"] == "ALTO"]
+    medios    = [h for h in hallazgos if h["max_risk"] == "MEDIO"]
+    # Todos los puertos inseguros en la red
+    puertos_inseguros = []
+    for h in hallazgos:
+        for p in h["open_ports"]:
+            if p["risk"] in ("CRITICO", "ALTO"):
+                puertos_inseguros.append(f"{h['ip']}:{p['port']} ({p['service']})")
+
+    return {
+        "subnet":           subnet + ".0/24",
+        "hosts_escaneados": len(targets),
+        "hosts_activos":    len(hallazgos),
+        "hosts_criticos":   len(criticos),
+        "hosts_altos":      len(altos),
+        "hosts_medios":     len(medios),
+        "puertos_inseguros": puertos_inseguros,
+        "hallazgos":        hallazgos,
+    }

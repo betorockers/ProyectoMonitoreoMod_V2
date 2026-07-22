@@ -3,7 +3,15 @@ Argos Guard Enterprise v4.0 - Monitoring Unit Tests.
 """
 import pytest
 from django.urls import reverse
+from django.contrib.auth.models import User
 from apps.monitoring.models import TargetNode, CameraStream
+
+@pytest.fixture
+def logged_in_client(client):
+    # Crear un usuario para pasar el middleware FirstRunMiddleware y el login_required
+    user = User.objects.create_user(username="testuser", password="testpassword123")
+    client.force_login(user)
+    return client
 
 @pytest.mark.django_db
 def test_target_node_creation():
@@ -18,16 +26,16 @@ def test_target_node_creation():
     assert str(node) == "Router Principal (192.168.1.1:80)"
 
 @pytest.mark.django_db
-def test_dashboard_view(client):
+def test_dashboard_view(logged_in_client):
     url = reverse('dashboard')
-    response = client.get(url)
+    response = logged_in_client.get(url)
     assert response.status_code == 200
     assert "ARGOS GUARD" in response.content.decode().upper()
 
 @pytest.mark.django_db
-def test_telemetry_nodes_partial(client):
+def test_telemetry_nodes_partial(logged_in_client):
     TargetNode.objects.create(label="Server Alpha", host="10.0.0.1", port=443)
     url = reverse('telemetry_nodes_partial')
-    response = client.get(url)
+    response = logged_in_client.get(url)
     assert response.status_code == 200
     assert "Server Alpha" in response.content.decode()

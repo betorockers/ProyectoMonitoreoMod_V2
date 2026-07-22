@@ -7,7 +7,8 @@ from .services import (
     scrape_rut, scrape_ppu, resolve_dns_records,
     query_geografia, query_fugas, query_reputacion, query_infra,
     query_whois, query_ipgeo, query_web, query_puertos,
-    query_subdominios, query_email, query_traceroute
+    query_subdominios, query_email, query_traceroute,
+    scan_lan_security,
 )
 from .models import OsintQueryLog
 
@@ -156,4 +157,32 @@ def query_traceroute_partial(request):
         OsintQueryLog.objects.create(module_type="TRACEROUTE", query_term=target, result_json=str(result))
         return render(request, 'osint/partials/result_card.html', {'result': result, 'title': f'Traceroute: {target}'})
     except Exception as e: return render(request, 'osint/partials/result_card.html', {'error': str(e)})
+
+
+def query_lan_scan_partial(request):
+    """
+    Escanea la subred LAN local en busca de hosts activos y servicios inseguros.
+    """
+    subnet = request.GET.get('subnet', '').strip()
+    max_hosts = int(request.GET.get('max_hosts', 60))
+    import re as _re
+    if subnet and not _re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}$', subnet):
+        return render(request, 'osint/partials/lan_scan_result.html',
+                      {'error': 'Formato de subred inválido. Use formato: 192.168.1'})
+    try:
+        result = scan_lan_security(subnet=subnet, max_hosts=max_hosts)
+        OsintQueryLog.objects.create(
+            module_type="LAN_SCAN",
+            query_term=result.get('subnet', subnet or 'auto'),
+            result_json=str({
+                'activos': result['hosts_activos'],
+                'criticos': result['hosts_criticos'],
+                'altos': result['hosts_altos'],
+            })
+        )
+        return render(request, 'osint/partials/lan_scan_result.html', {'result': result})
+    except Exception as e:
+        return render(request, 'osint/partials/lan_scan_result.html',
+                      {'error': f'Error en escáner LAN: {str(e)}'})
+
 

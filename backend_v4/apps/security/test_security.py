@@ -2,14 +2,15 @@
 Argos Guard Enterprise v4.0 - Security Unit Tests.
 """
 import pytest
-from apps.security.services import hash_password, verify_password, generate_jwt_pair
+from django.contrib.auth.hashers import make_password, check_password
+from apps.security.services import generate_jwt_pair
 
-def test_argon2id_hashing():
+def test_django_native_hashing():
     raw_pass = "ArgosSecurity2026!"
-    hashed = hash_password(raw_pass)
+    hashed = make_password(raw_pass)
     assert hashed != raw_pass
-    assert verify_password(hashed, raw_pass) is True
-    assert verify_password(hashed, "WrongPassword") is False
+    assert check_password(raw_pass, hashed) is True
+    assert check_password("WrongPassword", hashed) is False
 
 def test_jwt_generation():
     tokens = generate_jwt_pair("betorock", "super_admin")
