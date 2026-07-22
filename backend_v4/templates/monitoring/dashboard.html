@@ -30,7 +30,7 @@
 
             <div>
                 <label class="argos-label">Agregar Nodo (IP o Dominio)</label>
-                <form hx-post="{% url 'add_node' %}" hx-target="#node-grid-container" hx-indicator="#node-grid-container">
+                <form hx-post="{% url 'add_node' %}" hx-target="#node-grid-container" hx-indicator="#node-grid-container" hx-on::after-request="if(event.detail.successful) this.reset()">
                     {% csrf_token %}
                     <input type="text" name="host" class="argos-input" placeholder="ej. 192.168.1.1 o betograf.cl" style="margin-bottom: 8px;" required>
                     <input type="text" name="label" class="argos-input" placeholder="ej. Servidor Core" style="margin-bottom: 8px;" required>
@@ -41,7 +41,7 @@
 
             <div>
                 <label class="argos-label">Eliminar Nodo (IP o Dominio)</label>
-                <form hx-post="{% url 'remove_node' %}" hx-target="#node-grid-container" hx-indicator="#node-grid-container">
+                <form hx-post="{% url 'remove_node' %}" hx-target="#node-grid-container" hx-indicator="#node-grid-container" hx-on::after-request="if(event.detail.successful) this.reset()">
                     {% csrf_token %}
                     <input type="text" name="host" class="argos-input" placeholder="ej. 192.168.1.1 o betograf.cl" style="margin-bottom: 12px;" required>
                     <button type="submit" class="btn-action-danger" style="border-color: var(--red-alert); color: var(--red-alert); background: transparent;">Eliminar Equipo</button>
