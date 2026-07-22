@@ -47,6 +47,15 @@ def run_django_server(port: int):
 
     try:
         app = StaticFilesHandler(get_wsgi_application())
+        
+        # Purgar sesiones antiguas de Django para garantizar inicio en limpio
+        try:
+            from django.contrib.sessions.models import Session
+            Session.objects.all().delete()
+            log_msg("Sesiones de Django purgadas con éxito al arrancar el servidor.")
+        except Exception as e:
+            log_msg(f"Advertencia al purgar sesiones: {e}")
+
         httpd = make_server('127.0.0.1', port, app)
         log_msg(f"Servidor Django iniciado exitosamente en http://127.0.0.1:{port}/")
         httpd.serve_forever()
@@ -101,17 +110,6 @@ def main():
             ctypes.windll.user32.MessageBoxW(0, "Error crítico de inicialización:\n\nEl servidor interno de Argos Guard no pudo iniciar en el tiempo límite.", "Error Fatal - Argos Guard v4.0", 0x10)
         sys.exit(1)
 
-    # Purgar sesiones antiguas de Django para garantizar inicio limpio sin credenciales guardadas en base de datos
-    try:
-        os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
-        import django
-        django.setup()
-        from django.contrib.sessions.models import Session
-        Session.objects.all().delete()
-        log_msg("Sesiones de Django purgadas exitosamente.")
-    except Exception as e:
-        log_msg(f"Advertencia al purgar sesiones: {e}")
-
     url = f"http://127.0.0.1:{port}/"
 
     # PyQt6 GUI Setup
@@ -136,8 +134,6 @@ def main():
     # Use off-the-record profile so sessions are NEVER persistent across restarts
     profile = QWebEngineProfile("", window)
     profile.setHttpCacheType(QWebEngineProfile.HttpCacheType.NoCache)
-    profile.clearHttpCache()  # Limpia la cache del perfil temporal de forma explícita
-    profile.cookieStore().deleteAllCookies()  # Borra cookies residuales si las hubiera
     
     browser = QWebEngineView()
     page = QWebEnginePage(profile, browser)
