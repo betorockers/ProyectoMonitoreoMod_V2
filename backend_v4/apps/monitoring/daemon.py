@@ -49,6 +49,13 @@ class TelemetryDaemon(threading.Thread):
                                 if node.status != new_status:
                                     node.last_status_change = timezone.now()
                                     
+                                    # Cargar configuración de Telegram para alertas móviles
+                                    try:
+                                        from apps.core.models import TelegramConfig
+                                        telegram = TelegramConfig.get_config()
+                                    except Exception:
+                                        telegram = None
+
                                     if new_status == "offline":
                                         MonitoringEvent.objects.create(
                                             node=node,
@@ -65,6 +72,18 @@ class TelemetryDaemon(threading.Thread):
                                         except queue.Full:
                                             pass
 
+                                        # Alerta de Telegram
+                                        if telegram:
+                                            now_str = timezone.localtime(timezone.now()).strftime('%Y-%m-%d %H:%M:%S')
+                                            msg = (
+                                                f"🚨 <b>ALERTA DE CAÍDA - ARGOS GUARD</b> 🚨\n\n"
+                                                f"<b>Equipo:</b> {node.label}\n"
+                                                f"<b>Host:</b> {node.host}\n"
+                                                f"<b>Estado:</b> 🔴 <b>OFFLINE</b>\n"
+                                                f"<b>Hora:</b> {now_str}"
+                                            )
+                                            telegram.send_notification(msg)
+
                                     elif new_status == "online":
                                         MonitoringEvent.objects.create(
                                             node=node,
@@ -80,6 +99,19 @@ class TelemetryDaemon(threading.Thread):
                                             })
                                         except queue.Full:
                                             pass
+
+                                        # Alerta de Telegram
+                                        if telegram:
+                                            now_str = timezone.localtime(timezone.now()).strftime('%Y-%m-%d %H:%M:%S')
+                                            msg = (
+                                                f"✅ <b>RECUPERACIÓN DE RED - ARGOS GUARD</b> ✅\n\n"
+                                                f"<b>Equipo:</b> {node.label}\n"
+                                                f"<b>Host:</b> {node.host}\n"
+                                                f"<b>Estado:</b> 🟢 <b>ONLINE</b>\n"
+                                                f"<b>Latencia:</b> {res.get('latency_ms', 0.0)} ms\n"
+                                                f"<b>Hora:</b> {now_str}"
+                                            )
+                                            telegram.send_notification(msg)
                                 
                                 if res.get("mac_address"):
                                     node.mac_address = res.get("mac_address")

@@ -28,6 +28,30 @@ class TelegramConfig(models.Model):
         obj, _ = cls.objects.get_or_create(pk=1)
         return obj
 
+    def send_notification(self, message: str) -> bool:
+        """Envía una alerta de red de forma asíncrona (no bloqueante) por Telegram."""
+        if not self.is_active or not self.bot_token or not self.chat_id:
+            return False
+            
+        import requests
+        import threading
+        
+        def _send():
+            url = f"https://api.telegram.org/bot{self.bot_token}/sendMessage"
+            payload = {
+                "chat_id": self.chat_id,
+                "text": message,
+                "parse_mode": "HTML"
+            }
+            try:
+                requests.post(url, json=payload, timeout=8)
+            except Exception:
+                pass
+                
+        # Ejecutar en hilo secundario para evitar latencia de red en el demonio de monitoreo
+        threading.Thread(target=_send, daemon=True).start()
+        return True
+
 
 class ApiKeyConfig(models.Model):
     """Claves de API para servicios OSINT externos (AbuseIPDB, Shodan, HIBP)."""
