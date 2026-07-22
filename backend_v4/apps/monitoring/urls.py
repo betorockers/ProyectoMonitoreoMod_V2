@@ -16,4 +16,5 @@ urlpatterns = [
     path('export/backup/', views.backup_sqlite, name='backup_sqlite'),
     path('camera/add/', views.add_camera, name='add_camera'),
     path('camera/remove/', views.remove_camera, name='remove_camera'),
+    path('check-updates/', views.check_monitoring_updates, name='check_monitoring_updates'),
 ]

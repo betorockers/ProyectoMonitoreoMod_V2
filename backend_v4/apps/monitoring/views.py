@@ -339,3 +339,19 @@ def generate_pdf_report(request):
             content_type='text/plain'
         )
 
+
+def check_monitoring_updates(request):
+    """
+    Endpoint ultraligero que verifica si hay actualizaciones en toast_queue.
+    Retorna HTTP 204 (No Content) si no hay cambios.
+    Retorna HTTP 200 con la cabecera 'HX-Trigger: refreshNodeGrid' si hay cambios de estado.
+    """
+    from apps.monitoring.daemon import toast_queue
+    if not toast_queue.empty():
+        # Respondemos con el trigger de HTMX para recargar la grilla
+        response = HttpResponse(status=200)
+        response['HX-Trigger'] = 'refreshNodeGrid'
+        return response
+    return HttpResponse(status=204)
+
+

@@ -6,9 +6,13 @@
     <div style="display: grid; grid-template-columns: 1fr 320px; gap: 16px; width: 100%; height: 100%; align-items: start;">
         <!-- Node Cards Area (5-column Grid) -->
         <div class="argos-content-area" style="height: calc(100vh - 120px); overflow-y: auto;">
-            <div id="node-grid-container" hx-get="{% url 'telemetry_nodes_partial' %}" hx-trigger="load, every 2s">
+            <!-- Contenedor principal: carga inicialmente y se actualiza solo ante el evento refreshNodeGrid (cambios de red o manuales) -->
+            <div id="node-grid-container" hx-get="{% url 'telemetry_nodes_partial' %}" hx-trigger="load, refreshNodeGrid">
                 {% include 'monitoring/partials/node_grid.html' %}
             </div>
+            
+            <!-- Polling pasivo ultraligero: verifica cambios de estado en segundo plano (HTTP 204) sin causar parpadeo visual -->
+            <div hx-get="{% url 'check_monitoring_updates' %}" hx-trigger="every 2s" style="display: none;"></div>
         </div>
 
         <!-- Right Sidebar Panel de Control matching Image 2 -->
