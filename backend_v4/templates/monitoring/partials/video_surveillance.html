@@ -1,0 +1,117 @@
+<!-- Tab: Video Vigilancia — Matching reference image 220209 -->
+<div id="video-surveillance-container" style="display: grid; grid-template-columns: 1fr 320px; gap: 16px; width: 100%; align-items: start;" x-data="{ showVideoModal: false, activeStreamUrl: '', activeCameraName: '' }">
+
+    <!-- Central Area: Streams / Empty State -->
+    <div class="argos-content-area" style="height: calc(100vh - 120px); overflow-y: auto;">
+        
+        {% if cameras %}
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; padding: 16px;">
+            {% for camera in cameras %}
+            <div class="hud-panel" style="padding: 0; overflow: hidden; cursor: pointer; position: relative;" @click="activeStreamUrl = '{{ camera.endpoint_url }}'; activeCameraName = '{{ camera.name }}'; showVideoModal = true;">
+                <div style="height: 180px; background: url('/static/cctv_thumbnail.png') center/cover no-repeat; display: flex; align-items: center; justify-content: center; position: relative;">
+                    <!-- Static noise overlay (optional) -->
+                    <div style="position: absolute; inset: 0; background: repeating-linear-gradient(0deg, rgba(0,0,0,0.15) 0px, rgba(0,0,0,0.15) 1px, transparent 1px, transparent 2px); pointer-events: none;"></div>
+                    <div style="position: absolute; top: 10px; right: 10px; background: rgba(255,0,0,0.7); color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; animation: pulse 2s infinite; z-index: 10;">REC</div>
+                </div>
+                <div style="padding: 12px; border-top: 1px solid #0d3142;">
+                    <div style="font-weight: 700; color: var(--cyan-glow); font-size: 0.95rem;">{{ camera.name }}</div>
+                    <div style="font-size: 0.75rem; color: #78909c; font-family: monospace;">{{ camera.protocol|upper }} | {{ camera.endpoint_url }}</div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="history-section-panel" style="min-height: calc(100vh - 180px); display: flex; flex-direction: column; align-items: center; justify-content: center;">
+            <div style="font-size: 3rem; margin-bottom: 16px; opacity: 0.3;">📹</div>
+            <div style="font-size: 1.1rem; color: #78909c; text-align: center; max-width: 500px; line-height: 1.6;">
+                No hay streams de videovigilancia configurados o la API está desconectada.
+            </div>
+            <div style="margin-top: 16px; font-size: 0.85rem; color: #455a64;">
+                Utilice el panel lateral para agregar cámaras RTSP al sistema.
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Right Sidebar: CCTV Administration -->
+    <aside class="argos-sidebar" style="height: calc(100vh - 120px); position: sticky; top: 0;">
+        <div>
+            <div class="sidebar-title">📹 CCTV RED: {{ cameras|length }} ACTIVOS</div>
+            <div class="sidebar-subtitle">Administración de Cámaras</div>
+        </div>
+
+        <!-- Add Camera Form -->
+        <div style="border-top: 1px solid #0d3142; padding-top: 12px;">
+            <div style="font-size: 0.9rem; font-weight: 700; color: var(--cyan-glow); margin-bottom: 10px;">
+                ➕ Añadir Cámara
+            </div>
+            <form hx-post="{% url 'add_camera' %}" hx-target="#video-surveillance-container" hx-swap="outerHTML" style="display: flex; flex-direction: column; gap: 8px;">
+                {% csrf_token %}
+                <div>
+                    <label class="argos-label">Nombre</label>
+                    <input type="text" name="name" class="argos-input" placeholder="Ej: Cámara Entrada Norte" required>
+                </div>
+                <div>
+                    <label class="argos-label">Protocolo</label>
+                    <select name="protocol" class="argos-input">
+                        <option value="rtsp">RTSP</option>
+                        <option value="http">HTTP</option>
+                        <option value="rtmp">RTMP</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="argos-label">URL Endpoint</label>
+                    <input type="text" name="endpoint_url" class="argos-input" placeholder="rtsp://192.168.1.64:554/stream1" required>
+                </div>
+                <button type="submit" class="btn-action-primary">
+                    📹 Guardar Cámara
+                </button>
+            </form>
+        </div>
+
+        <!-- Remove Camera Form -->
+        <div style="border-top: 1px solid #0d3142; padding-top: 12px; margin-top: 8px;">
+            <div style="font-size: 0.9rem; font-weight: 700; color: var(--red-alert); margin-bottom: 10px;">
+                🗑 Eliminar Cámara
+            </div>
+            <form hx-post="{% url 'remove_camera' %}" hx-target="#video-surveillance-container" hx-swap="outerHTML" style="display: flex; flex-direction: column; gap: 8px;">
+                {% csrf_token %}
+                <div>
+                    <label class="argos-label">Nombre de Cámara</label>
+                    <input type="text" name="name" class="argos-input" placeholder="Ej: Cámara Entrada Norte" required>
+                </div>
+                <button type="submit" class="btn-action-danger">
+                    🗑 Eliminar Cámara
+                </button>
+            </form>
+        </div>
+    </aside>
+
+    <!-- Video Modal -->
+    <div x-show="showVideoModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 9999; align-items: center; justify-content: center;" x-transition>
+        <div style="background: #041018; border: 1px solid var(--cyan-primary); padding: 4px; border-radius: 8px; width: 80%; max-width: 900px; box-shadow: 0 0 20px rgba(0,243,255,0.2);">
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #06151f; border-bottom: 1px solid #0d3142;">
+                <div style="color: var(--cyan-glow); font-weight: 700; font-size: 1.1rem; display: flex; align-items: center; gap: 8px;">
+                    <span style="color: red; animation: pulse 2s infinite;">●</span> <span x-text="activeCameraName"></span>
+                </div>
+                <button @click="showVideoModal = false; activeStreamUrl = '';" style="background: transparent; border: none; color: #fff; font-size: 1.5rem; cursor: pointer;">&times;</button>
+            </div>
+            <div style="width: 100%; aspect-ratio: 16/9; background: url('/static/cctv_thumbnail.png') center/cover no-repeat; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden;">
+                <!-- Simulated Video Stream using iframe or animated elements -->
+                <div style="position: absolute; inset: 0; background: repeating-linear-gradient(0deg, rgba(0,0,0,0.1) 0px, rgba(0,0,0,0.1) 1px, transparent 1px, transparent 2px); pointer-events: none; z-index: 2;"></div>
+                <div style="color: #455a64; font-family: monospace; text-align: center;">
+                    <div style="font-size: 3rem; margin-bottom: 12px;">📡</div>
+                    <div style="font-size: 1.2rem;">Conectando a Stream...</div>
+                    <div style="font-size: 0.9rem; margin-top: 8px; color: var(--cyan-primary);" x-text="activeStreamUrl"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+{% if toast_message %}
+<div hx-swap-oob="beforeend:#toast-container">
+    {% include 'security/partials/_config_toast.html' with message=toast_message status=toast_status %}
+</div>
+{% endif %}

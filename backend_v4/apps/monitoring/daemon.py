@@ -1,0 +1,111 @@
+"""
+Argos Guard Enterprise v4.0 - Telemetry Background Daemon
+"""
+import threading
+import asyncio
+import time
+import queue
+from django.utils import timezone
+from apps.core.async_runner import NetworkProbeRunner
+
+# Cola en memoria para pasar notificaciones Toast del demonio a las vistas
+toast_queue = queue.Queue(maxsize=100)
+
+class TelemetryDaemon(threading.Thread):
+    def __init__(self, interval_seconds=2.0):
+        super().__init__(daemon=True)
+        self.interval = interval_seconds
+        self._stop_event = threading.Event()
+
+    def stop(self):
+        self._stop_event.set()
+
+    def run(self):
+        # Configurar un event loop de asyncio para este hilo
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        try:
+            loop.run_until_complete(self.ping_loop())
+        finally:
+            loop.close()
+
+    async def ping_loop(self):
+        """Bucle infinito que escanea los nodos con precisión militar."""
+        # Importaciones locales para evitar problemas circulares o de carga prematura de Django
+        from apps.monitoring.models import TargetNode, MonitoringEvent
+
+        while not self._stop_event.is_set():
+            start_time = time.time()
+            
+            # 1. Obtener nodos
+            nodes = list(TargetNode.objects.all())
+            
+            if nodes:
+                # 2. Preparar targets
+                targets = [{"host": node.host, "port": node.port, "id": node.id} for node in nodes]
+                
+                # 3. Ejecutar probe_batch concurrentemente
+                results = await NetworkProbeRunner.probe_batch(targets)
+                
+                # 4. Procesar resultados y registrar eventos
+                for node in nodes:
+                    for res in results:
+                        if isinstance(res, dict) and res.get("host") == node.host:
+                            new_status = res.get("status")
+                            
+                            # Si hubo cambio de estado
+                            if node.status != new_status:
+                                node.last_status_change = timezone.now()
+                                
+                                if new_status == "offline":
+                                    MonitoringEvent.objects.create(
+                                        node=node,
+                                        event_type='node_down',
+                                        severity='critical',
+                                        message=f'Nodo {node.label} ({node.host}) ha perdido conectividad.'
+                                    )
+                                    try:
+                                        toast_queue.put_nowait({
+                                            'message': f'⚠️ Alerta: Nodo {node.label} está OFFLINE',
+                                            'status': 'offline'
+                                        })
+                                    except queue.Full:
+                                        pass
+
+                                elif new_status == "online":
+                                    MonitoringEvent.objects.create(
+                                        node=node,
+                                        event_type='node_up',
+                                        severity='resolved',
+                                        message=f'Nodo {node.label} ({node.host}) ha recuperado conectividad.'
+                                    )
+                                    try:
+                                        toast_queue.put_nowait({
+                                            'message': f'✅ Recuperado: Nodo {node.label} está ONLINE',
+                                            'status': 'online'
+                                        })
+                                    except queue.Full:
+                                        pass
+                            
+                            if res.get("mac_address"):
+                                node.mac_address = res.get("mac_address")
+                                
+                            node.status = new_status
+                            node.latency_ms = res.get("latency_ms", 0.0)
+                            node.save(update_fields=['status', 'latency_ms', 'last_check', 'last_status_change', 'mac_address'])
+                            break
+
+            # 5. Esperar el resto del intervalo antes del siguiente ciclo
+            elapsed = time.time() - start_time
+            sleep_time = max(0.1, self.interval - elapsed)
+            await asyncio.sleep(sleep_time)
+
+# Instancia global del demonio
+_telemetry_daemon = None
+
+def start_daemon():
+    global _telemetry_daemon
+    if _telemetry_daemon is None or not _telemetry_daemon.is_alive():
+        _telemetry_daemon = TelemetryDaemon(interval_seconds=2.0)
+        _telemetry_daemon.start()

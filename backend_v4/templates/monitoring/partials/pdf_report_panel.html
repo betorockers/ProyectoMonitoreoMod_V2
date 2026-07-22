@@ -1,0 +1,26 @@
+<!-- Tab: Reporte PDF & Plantilla JSON Matching Image 104931 -->
+<div style="width: 100%; display: flex; flex-direction: column; gap: 16px;">
+
+    <!-- Plantilla de Equipos JSON -->
+    <div class="report-card">
+        <div class="report-card-title">Plantilla de Equipos JSON</div>
+        <div class="report-card-desc">
+            Descarga una plantilla de formato JSON para que sirva de guía al agregar equipos de forma masiva en la sección de Monitoreo Activo.
+        </div>
+        <a href="{% url 'export_nodes_json' %}" download="plantilla_equipos.json" class="btn-action-outline" style="display: inline-flex; align-items: center; width: auto; text-decoration: none; padding: 10px 18px;">
+            📥 Descargar Plantilla JSON de Equipos
+        </a>
+    </div>
+
+    <!-- Generación de Reportes -->
+    <div class="report-card">
+        <div class="report-card-title">Generación de Reportes PDF</div>
+        <div class="report-card-desc">
+            Genera un informe gerencial en formato PDF con el estado actual de los nodos monitoreados, eventos recientes y resumen de conectividad. El archivo se guardará automáticamente en tu carpeta de Descargas de Windows.
+        </div>
+        <a href="{% url 'generate_pdf_report' %}" class="btn-action-primary" style="display: inline-flex; align-items: center; width: auto; text-decoration: none; padding: 12px 24px;">
+            📄 Generar Reporte PDF Gerencial
+        </a>
+    </div>
+
+</div>

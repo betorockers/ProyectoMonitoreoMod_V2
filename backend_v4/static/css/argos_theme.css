@@ -1,0 +1,749 @@
+/* Argos Guard Enterprise v4.0 - Exact Visual Identity Theme */
+:root {
+    --bg-dark: #050d12;
+    --bg-grid-line: rgba(0, 243, 255, 0.03);
+    --panel-bg: #091a24;
+    --panel-header-bg: #0d2532;
+    --cyan-primary: #00bcd4;
+    --cyan-glow: #00f3ff;
+    --mint-accent: #00e676;
+    --mint-bright: #1de9b6;
+    --orange-warning: #ffb300;
+    --red-alert: #ff1744;
+    --text-white: #ffffff;
+    --text-muted: #78909c;
+    --text-cyan: #4dd0e1;
+}
+
+* {
+    box-sizing: border-box;
+    font-family: 'Rajdhani', 'Segoe UI', sans-serif;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background-color: var(--bg-dark);
+    background-image: 
+        linear-gradient(var(--bg-grid-line) 1px, transparent 1px),
+        linear-gradient(90deg, var(--bg-grid-line) 1px, transparent 1px);
+    background-size: 24px 24px;
+    color: var(--text-white);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* Header Navbar Topbar */
+.argos-navbar {
+    background: #06151f;
+    border-bottom: 2px solid #0d2d3a;
+    padding: 8px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.argos-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.argos-brand img {
+    height: 38px;
+    width: auto;
+}
+
+.argos-brand-text {
+    display: flex;
+    flex-direction: column;
+}
+
+.argos-brand-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--cyan-glow);
+    letter-spacing: 1px;
+}
+
+.argos-brand-sub {
+    font-size: 0.65rem;
+    color: #4dd0e1;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+}
+
+/* Header Nav Tabs Bar */
+.argos-nav-tabs {
+    display: flex;
+    gap: 6px;
+}
+
+.argos-tab-btn {
+    background: #09202c;
+    border: 1px solid #103649;
+    color: #b0bec5;
+    padding: 10px 20px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    border-radius: 4px 4px 0 0;
+    transition: all 0.2s ease;
+}
+
+.argos-tab-btn:hover {
+    background: #0f3042;
+    color: #ffffff;
+}
+
+.argos-tab-btn.active {
+    background: #143e52;
+    border-color: var(--cyan-glow);
+    border-bottom: 3px solid var(--cyan-glow);
+    color: #ffffff;
+    box-shadow: 0 0 12px rgba(0, 243, 255, 0.2);
+}
+
+/* Top Right System Status */
+.argos-top-status {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.api-status-badge {
+    background: #09202c;
+    border: 1px solid #103649;
+    border-radius: 4px;
+    padding: 4px 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.api-status-badge .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--mint-accent);
+    box-shadow: 0 0 8px var(--mint-accent);
+    animation: pulse-dot 1.5s infinite ease-in-out;
+}
+
+.api-status-text {
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: #b0bec5;
+    line-height: 1.1;
+    text-align: center;
+    letter-spacing: 0.5px;
+}
+
+@keyframes pulse-dot {
+    0% { transform: scale(0.9); opacity: 0.8; }
+    50% { transform: scale(1.15); opacity: 1; }
+    100% { transform: scale(0.9); opacity: 0.8; }
+}
+
+.btn-logout {
+    background: transparent;
+    border: 1px solid var(--red-alert);
+    color: var(--red-alert);
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 4px 12px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-logout:hover {
+    background: var(--red-alert);
+    color: #ffffff;
+}
+
+/* Main Container Layout (Cards Grid + Right Sidebar) */
+.argos-main-layout {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 16px;
+    padding: 16px;
+    flex: 1;
+    width: 100%;
+    overflow: hidden; /* Prevent body scroll */
+}
+
+.argos-content-area {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-y: auto;
+    background: #071924;
+    border: 1px solid #0d3142;
+    border-radius: 4px;
+    padding: 16px;
+    height: calc(100vh - 120px); /* Fill available space */
+}
+
+/* Global Custom scrollbar */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background: rgba(13, 49, 66, 0.5); /* subtle dark cyan */
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(77, 208, 225, 0.4); /* brightens on hover */
+}
+
+.argos-sidebar {
+    width: 320px;
+    flex: 0 0 320px;
+    background: #071924;
+    border: 1px solid #0d3142;
+    border-radius: 4px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    height: calc(100vh - 120px);
+    overflow-y: auto;
+}
+
+.sidebar-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--cyan-glow);
+    border-bottom: 1px solid #103b50;
+    padding-bottom: 8px;
+}
+
+.sidebar-subtitle {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: -6px;
+}
+
+/* Form Controls in Sidebar & Inputs */
+.argos-label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--text-cyan);
+    margin-bottom: 4px;
+    display: block;
+}
+
+.argos-input {
+    width: 100%;
+    background: #041018;
+    border: 1px solid #0d384d;
+    color: #ffffff;
+    padding: 8px 12px;
+    font-size: 0.9rem;
+    border-radius: 3px;
+    outline: none;
+    transition: border 0.2s;
+}
+
+.argos-input:focus {
+    border-color: var(--cyan-glow);
+    box-shadow: 0 0 8px rgba(0, 243, 255, 0.3);
+}
+
+.btn-action-primary {
+    width: 100%;
+    background: #00bfa5;
+    border: none;
+    color: #000000;
+    font-weight: 700;
+    padding: 10px;
+    font-size: 0.9rem;
+    border-radius: 3px;
+    cursor: pointer;
+    letter-spacing: 0.5px;
+    transition: background 0.2s;
+}
+
+.btn-action-primary:hover {
+    background: #1de9b6;
+    box-shadow: 0 0 12px rgba(29, 233, 182, 0.4);
+}
+
+.btn-action-outline {
+    width: 100%;
+    background: transparent;
+    border: 1px solid var(--cyan-primary);
+    color: var(--cyan-glow);
+    font-weight: 700;
+    padding: 8px;
+    font-size: 0.85rem;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-action-outline:hover {
+    background: rgba(0, 188, 212, 0.15);
+    border-color: var(--cyan-glow);
+}
+
+.btn-action-danger {
+    width: 100%;
+    background: transparent;
+    border: 1px solid var(--red-alert);
+    color: var(--red-alert);
+    font-weight: 700;
+    padding: 8px;
+    font-size: 0.85rem;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-action-danger:hover {
+    background: rgba(255, 23, 68, 0.15);
+}
+
+/* Target Node Cards Grid (Strict 5 Columns, Compact Sizing) */
+.node-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+    width: 100%;
+}
+
+.node-card {
+    background: #081b26;
+    border: 2px solid #0d3649;
+    border-radius: 6px;
+    padding: 10px 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    transition: all 0.25s ease;
+    min-height: 105px;
+    justify-content: space-between;
+    animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+@keyframes popIn {
+    0% { opacity: 0; transform: scale(0.9) translateY(10px); }
+    100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+#node-grid-container.htmx-request {
+    opacity: 0.5;
+    filter: blur(2px) grayscale(50%);
+    pointer-events: none;
+    transition: all 0.2s;
+}
+
+.node-card.online {
+    border-color: #00bcd4;
+    box-shadow: 0 0 8px rgba(0, 188, 212, 0.2);
+}
+
+.node-card.unstable {
+    border-color: #ffb300;
+    box-shadow: 0 0 8px rgba(255, 179, 0, 0.2);
+}
+
+.node-card.offline {
+    border-color: #ff1744;
+    box-shadow: 0 0 8px rgba(255, 23, 68, 0.2);
+}
+
+.node-card-title {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #ffffff;
+    margin-bottom: 4px;
+    line-height: 1.25;
+}
+
+.node-status-icon {
+    font-size: 1.25rem;
+    margin: 2px 0;
+}
+
+.node-card.online .node-status-icon { color: #00e676; }
+.node-card.unstable .node-status-icon { color: #ffb300; }
+.node-card.offline .node-status-icon { color: #ff1744; }
+
+.node-status-text {
+    font-size: 0.72rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.node-card.online .node-status-text { color: #00e676; }
+.node-card.unstable .node-status-text { color: #ffb300; }
+.node-card.offline .node-status-text { color: #ff1744; }
+
+.node-card-meta {
+    font-size: 0.65rem;
+    color: #90a4ae;
+    line-height: 1.35;
+}
+
+/* Tactical Map Styling (Image 125900) */
+.tactical-map-container {
+    width: 100%;
+    height: calc(100vh - 140px);
+    border: 1px solid #0d3649;
+    border-radius: 6px;
+    overflow: hidden;
+    background: #040e14;
+}
+
+#leaflet-tactical-map {
+    width: 100%;
+    height: 100%;
+    background: #040e14;
+}
+
+/* Custom Leaflet Dark Controls */
+.leaflet-container {
+    background-color: #040e14 !important;
+}
+
+.leaflet-control-zoom a {
+    background-color: #081b26 !important;
+    color: var(--cyan-glow) !important;
+    border-color: #0d3649 !important;
+}
+
+/* Historial Eventos Styling (Image 130131 & Image 162258) */
+.history-section-panel {
+    background: #071924;
+    border: 1px solid #0d3142;
+    border-radius: 6px;
+    padding: 18px;
+    margin-bottom: 16px;
+}
+
+.history-section-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--cyan-glow);
+    margin-bottom: 16px;
+}
+
+.gauges-wrapper {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 40px;
+    align-items: center;
+    padding: 10px 0;
+}
+
+.gauge-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 180px;
+}
+
+.gauge-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #ffffff;
+    margin-bottom: 8px;
+}
+
+.continuity-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 10px;
+}
+
+.continuity-label {
+    width: 140px;
+    font-size: 0.85rem;
+    color: #b0bec5;
+    font-weight: 600;
+}
+
+.continuity-blocks {
+    display: flex;
+    gap: 4px;
+    flex: 1;
+}
+
+.continuity-block {
+    height: 18px;
+    width: 14px;
+    border-radius: 2px;
+    background: #0d3142;
+}
+
+.continuity-block.online {
+    background: var(--mint-accent);
+    box-shadow: 0 0 4px var(--mint-accent);
+}
+
+.continuity-block.offline {
+    background: var(--red-alert);
+    box-shadow: 0 0 4px var(--red-alert);
+}
+
+.events-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+
+.events-table th, .events-table td {
+    padding: 10px 14px;
+    text-align: left;
+    border-bottom: 1px solid #0d3142;
+    font-size: 0.88rem;
+}
+
+.events-table th {
+    color: var(--text-cyan);
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 0.78rem;
+}
+
+.events-table td {
+    color: #cfd8dc;
+}
+
+/* Configuración & Gestión Usuarios Sidebar Sub-panel (Image 104931) */
+.config-layout {
+    display: flex;
+    gap: 16px;
+    width: 100%;
+}
+
+.config-sidebar {
+    width: 240px;
+    flex: 0 0 240px;
+    background: #071924;
+    border: 1px solid #0d3142;
+    border-radius: 6px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.config-nav-btn {
+    background: transparent;
+    border: 1px solid transparent;
+    color: #90a4ae;
+    padding: 10px 14px;
+    text-align: left;
+    font-size: 0.9rem;
+    font-weight: 700;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.config-nav-btn:hover {
+    background: #0c2636;
+    color: #ffffff;
+}
+
+.config-nav-btn.active {
+    background: #0d3448;
+    border-color: var(--cyan-glow);
+    color: var(--cyan-glow);
+}
+
+.config-content-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* Reporte PDF & Templates Panel */
+.report-card {
+    background: #071924;
+    border: 1px solid #0d3142;
+    border-radius: 6px;
+    padding: 20px;
+    margin-bottom: 16px;
+}
+
+.report-card-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--cyan-glow);
+    margin-bottom: 8px;
+}
+
+.report-card-desc {
+    font-size: 0.85rem;
+    color: #90a4ae;
+    margin-bottom: 16px;
+    line-height: 1.5;
+}
+
+/* Footer Bottom Bar */
+.argos-footer {
+    background: #041017;
+    border-top: 1px solid #0b2a38;
+    padding: 6px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.72rem;
+    color: #607d8b;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    z-index: 9999;
+}
+
+.footer-timestamp {
+    background: #020a0f;
+    border: 1px solid #0d384d;
+    padding: 2px 8px;
+    color: var(--cyan-glow);
+    font-family: 'Courier New', monospace;
+    font-weight: 700;
+}
+
+
+/* OSINT Panel Styles */
+.hud-panel {
+    background: #071924;
+    border: 1px solid #0d3142;
+    border-radius: 6px;
+    color: #ffffff;
+}
+
+.btn-cyber-tab {
+    background: #0c2636;
+    border: 1px solid #103b50;
+    color: #90a4ae;
+    padding: 8px 16px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-cyber-tab:hover {
+    background: #123347;
+    color: #ffffff;
+}
+
+.btn-cyber-tab.active {
+    background: #09202c;
+    border-color: var(--cyan-glow);
+    color: var(--cyan-glow);
+    box-shadow: 0 0 10px rgba(0,243,255,0.15);
+}
+
+.input-cyber {
+    width: 100%;
+    background: #041018;
+    border: 1px solid #0d384d;
+    color: #ffffff;
+    padding: 12px 16px;
+    font-size: 0.95rem;
+    border-radius: 4px;
+    outline: none;
+}
+
+.input-cyber:focus {
+    border-color: var(--cyan-glow);
+    box-shadow: 0 0 8px rgba(0, 243, 255, 0.3);
+}
+
+.btn-cyber {
+    background: #09202c;
+    border: 1px solid var(--cyan-primary);
+    color: var(--cyan-glow);
+    font-weight: 700;
+    font-size: 0.95rem;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-cyber:hover {
+    background: var(--cyan-primary);
+    color: #000;
+    box-shadow: 0 0 12px rgba(0, 243, 255, 0.4);
+}
+
+/* Toast Notifications */
+.argos-toast {
+    background: #06151f;
+    border: 1px solid #0d3142;
+    border-left: 4px solid var(--cyan-primary);
+    color: #fff;
+    padding: 12px 20px;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    animation: slideInRight 0.3s ease-out;
+}
+
+.argos-toast.toast-success {
+    border-left-color: var(--mint-accent);
+}
+.argos-toast.toast-error {
+    border-left-color: var(--red-alert);
+}
+.argos-toast.toast-offline {
+    border-left-color: var(--orange-warn);
+}
+
+@keyframes slideInRight {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+/* Button click effects (Tactile Feedback) */
+button:active, 
+.btn-action-primary:active, 
+.btn-action-outline:active, 
+.btn-action-danger:active, 
+.argos-tab-btn:active, 
+.btn-cyber-tab:active, 
+.btn-cyber:active, 
+.config-nav-btn:active,
+.btn-submit:active {
+    transform: scale(0.96);
+    transition: transform 0.05s ease;
+}
+
+/* HTMX Loading States for buttons */
+button.htmx-request {
+    opacity: 0.7;
+    pointer-events: none;
+    cursor: wait;
+    filter: brightness(0.8);
+}

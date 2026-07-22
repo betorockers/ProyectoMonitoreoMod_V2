@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<!-- Tab: Monitoreo Activo -->
+<div x-show="currentTab === 'monitoring'" style="width: 100%; height: 100%;">
+    <div style="display: grid; grid-template-columns: 1fr 320px; gap: 16px; width: 100%; height: 100%; align-items: start;">
+        <!-- Node Cards Area (5-column Grid) -->
+        <div class="argos-content-area" style="height: calc(100vh - 120px); overflow-y: auto;">
+            <div id="node-grid-container" hx-get="{% url 'telemetry_nodes_partial' %}" hx-trigger="load, every 2s">
+                {% include 'monitoring/partials/node_grid.html' %}
+            </div>
+        </div>
+
+        <!-- Right Sidebar Panel de Control matching Image 2 -->
+        <aside class="argos-sidebar" style="height: calc(100vh - 120px); position: sticky; top: 0;">
+            <div>
+                <div class="sidebar-title">📡 Panel de Control</div>
+                <div class="sidebar-subtitle">Gestión de Nodos TCP</div>
+            </div>
+
+            <button hx-get="{% url 'telemetry_nodes_partial' %}" hx-target="#node-grid-container" hx-indicator="#node-grid-container" class="btn-action-outline">
+                Recargar Equipos
+            </button>
+
+
+
+            <div>
+                <label class="argos-label">Agregar Nodo (IP o Dominio)</label>
+                <form hx-post="{% url 'add_node' %}" hx-target="#node-grid-container" hx-indicator="#node-grid-container">
+                    {% csrf_token %}
+                    <input type="text" name="host" class="argos-input" placeholder="ej. 192.168.1.1 o betograf.cl" style="margin-bottom: 8px;" required>
+                    <input type="text" name="label" class="argos-input" placeholder="ej. Servidor Core" style="margin-bottom: 8px;" required>
+                    <input type="text" name="location" class="argos-input" placeholder="ej. Quilicura Norte" style="margin-bottom: 12px;">
+                    <button type="submit" class="btn-action-primary">Guardar Equipo</button>
+                </form>
+            </div>
+
+            <div>
+                <label class="argos-label">Eliminar Nodo (IP o Dominio)</label>
+                <form hx-post="{% url 'remove_node' %}" hx-target="#node-grid-container" hx-indicator="#node-grid-container">
+                    {% csrf_token %}
+                    <input type="text" name="host" class="argos-input" placeholder="ej. 192.168.1.1 o betograf.cl" style="margin-bottom: 12px;" required>
+                    <button type="submit" class="btn-action-danger" style="border-color: var(--red-alert); color: var(--red-alert); background: transparent;">Eliminar Equipo</button>
+                </form>
+            </div>
+
+            <div style="margin-top: auto; display: flex; flex-direction: column; gap: 12px;">
+                <button hx-get="{% url 'telemetry_nodes_partial' %}" hx-target="#node-grid-container" hx-indicator="#node-grid-container" class="btn-action-outline">
+                    Cargar Equipos desde BBDD
+                </button>
+                <hr style="border: 1px solid rgba(0,243,255,0.1); width: 100%;">
+                
+                <form hx-post="{% url 'import_nodes_json' %}" hx-target="#node-grid-container" enctype="multipart/form-data" id="json-upload-form" style="display:none;">
+                    {% csrf_token %}
+                    <input type="file" name="json_file" id="json-upload-input" accept=".json" onchange="document.getElementById('json-upload-submit').click();">
+                    <button type="submit" id="json-upload-submit"></button>
+                </form>
+
+                <button type="button" class="btn-action-outline" onclick="document.getElementById('json-upload-input').click();">
+                    Cargar Equipos (JSON)
+                </button>
+            </div>
+        </aside>
+    </div>
+</div>
+
+<!-- Tab: Mapa Táctico -->
+<div x-show="currentTab === 'map'" style="width: 100%;" x-cloak>
+    <div hx-get="{% url 'tactical_map_partial' %}" hx-trigger="load"></div>
+</div>
+
+<!-- Tab: Historial Eventos -->
+<div x-show="currentTab === 'history'" style="width: 100%; height: calc(100vh - 120px); overflow-y: auto; overflow-x: hidden; padding: 16px;" x-cloak>
+    <div hx-get="{% url 'event_history_partial' %}" hx-trigger="load"></div>
+</div>
+
+<!-- Tab: Video Vigilancia -->
+<div x-show="currentTab === 'video'" style="width: 100%;" x-cloak>
+    <div hx-get="{% url 'video_surveillance_partial' %}" hx-trigger="load"></div>
+</div>
+
+<!-- Tab: OSINT -->
+<div x-show="currentTab === 'osint'" style="width: 100%;" x-cloak>
+    <div hx-get="{% url 'osint_main' %}" hx-trigger="load"></div>
+</div>
+
+<!-- Tab: Configuración -->
+<div x-show="currentTab === 'config'" style="width: 100%;" x-cloak>
+    <div id="config-layout-parent" hx-get="{% url 'user_management_partial' %}" hx-trigger="load"></div>
+</div>
+{% endblock %}

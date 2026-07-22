@@ -1,0 +1,15 @@
+<div class="argos-toast toast-{{ status }}"
+     x-data="{ show: true }"
+     x-show="show"
+     x-init="
+        setTimeout(() => show = false, 4000);
+        let audioId = ('{{ status }}' === 'success' || '{{ status }}' === 'online') ? 'audio-recuperado' : 'audio-caida';
+        let audioEl = document.getElementById(audioId);
+        if(audioEl) { 
+            audioEl.currentTime = 0; 
+            audioEl.play().catch(e => console.log('Audio play blocked:', e)); 
+        }
+     "
+     x-transition.opacity.duration.500ms>
+    {{ message }}
+</div>

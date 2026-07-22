@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Argos Guard - Login Táctico</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-dark: #050d12;
+            --panel-bg: rgba(9, 26, 36, 0.95);
+            --cyan-primary: #00bcd4;
+            --cyan-glow: #00f3ff;
+            --mint-accent: #00e676;
+            --red-alert: #ff1744;
+            --text-main: #e0e0e0;
+            --text-muted: #90a4ae;
+            --border-color: #0d3142;
+        }
+
+        body {
+            /* Crear el fondo con el destello global como se ve en la imagen */
+            background-color: var(--bg-dark);
+            background: radial-gradient(circle at center, rgba(0, 188, 212, 0.15) 0%, var(--bg-dark) 60%);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            font-family: 'Rajdhani', sans-serif;
+            color: var(--text-main);
+        }
+
+        .login-container {
+            background: var(--panel-bg);
+            border: 1px solid var(--cyan-primary);
+            border-radius: 6px;
+            padding: 40px 50px;
+            width: 420px;
+            max-width: 95vw;
+            box-shadow: 0 0 30px rgba(0, 188, 212, 0.1);
+        }
+
+        .login-logo {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 28px;
+        }
+
+        .login-logo img {
+            height: 70px;
+            width: auto;
+            margin-bottom: 15px;
+        }
+
+        .login-logo-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: var(--cyan-primary);
+            text-align: center;
+        }
+
+        .login-logo-sub {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            text-align: center;
+            letter-spacing: 1px;
+            margin-top: 8px;
+            text-transform: uppercase;
+        }
+
+        .login-error {
+            background: rgba(255, 23, 68, 0.1);
+            border: 1px solid var(--red-alert);
+            border-radius: 4px;
+            color: var(--red-alert);
+            font-size: 0.9rem;
+            padding: 10px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .input-group {
+            position: relative;
+            margin-bottom: 16px;
+        }
+
+        .input-group span {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            font-size: 1.1rem;
+        }
+
+        .argos-input {
+            width: 100%;
+            background: rgba(4, 16, 24, 0.8);
+            border: 1px solid var(--border-color);
+            color: var(--cyan-glow);
+            padding: 14px 14px 14px 40px;
+            border-radius: 4px;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 1.05rem;
+            box-sizing: border-box;
+            transition: all 0.2s;
+        }
+        
+        .argos-input::placeholder {
+            color: #455a64;
+        }
+
+        .argos-input:focus {
+            outline: none;
+            border-color: var(--cyan-glow);
+            box-shadow: 0 0 10px rgba(0, 243, 255, 0.2);
+        }
+
+        .btn-submit {
+            width: 100%;
+            background: #26a69a;
+            border: none;
+            color: #000;
+            font-weight: 700;
+            padding: 14px;
+            font-size: 1.1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            text-transform: uppercase;
+            transition: all 0.2s;
+            font-family: 'Rajdhani', sans-serif;
+            margin-top: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-submit:hover {
+            background: var(--mint-accent);
+            box-shadow: 0 0 16px rgba(0, 230, 118, 0.4);
+        }
+
+        .footer-text {
+            text-align: center;
+            font-size: 0.75rem;
+            color: var(--border-color);
+            margin-top: 25px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 6px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="login-container">
+        <div class="login-logo">
+            <img src="/static/icono_argos.png" alt="Argos Guard Logo">
+            <div class="login-logo-title">Argos Guard Enterprise</div>
+            <div class="login-logo-sub">SECURE TACTICAL TERMINAL</div>
+        </div>
+
+        {% if error %}
+        <div class="login-error">{{ error }}</div>
+        {% endif %}
+
+        <form method="post" action="{% url 'login' %}">
+            {% csrf_token %}
+            
+            <div class="input-group">
+                <span>👤</span>
+                <input type="text" name="username" class="argos-input" placeholder="Identificación de Usuario" required autofocus>
+            </div>
+            
+            <div class="input-group">
+                <span>🔒</span>
+                <input type="password" name="password" id="login-pass" class="argos-input" placeholder="Código de Acceso" style="padding-right: 40px;" required>
+                <span class="toggle-icon" style="left: auto; right: 14px; cursor: pointer; color: var(--text-muted);" onclick="const p = document.getElementById('login-pass'); p.type = p.type === 'password' ? 'text' : 'password'; this.innerText = p.type === 'password' ? '👁️' : '🙈';" title="Mostrar/Ocultar contraseña">👁️</span>
+            </div>
+            
+            <button type="submit" class="btn-submit">
+                <span style="font-size: 1.1rem;">🛡</span> INICIALIZAR ENLACE
+            </button>
+        </form>
+
+        <div class="footer-text" style="flex-direction: column; gap: 15px;">
+            <div>🔒 ACCESO RESTRINGIDO - NIVEL TÁCTICO</div>
+            <button onclick="fetch('{% url 'shutdown' %}').then(() => window.close());" style="background: transparent; border: 1px solid var(--border-color); color: var(--text-muted); padding: 6px 16px; border-radius: 4px; cursor: pointer; font-family: 'Rajdhani', sans-serif; font-size: 0.85rem; transition: all 0.2s;" onmouseover="this.style.color='var(--red-alert)'; this.style.borderColor='rgba(255, 23, 68, 0.5)'" onmouseout="this.style.color='var(--text-muted)'; this.style.borderColor='var(--border-color)'">
+                ✕ CERRAR VENTANA
+            </button>
+        </div>
+    </div>
+
+</body>
+</html>

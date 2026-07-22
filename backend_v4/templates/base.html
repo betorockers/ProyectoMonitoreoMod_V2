@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Argos Guard Enterprise v4.0</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Theme Stylesheet -->
+    <link rel="stylesheet" href="/static/css/argos_theme.css">
+
+    <!-- HTMX & Alpine.js -->
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    <!-- Leaflet & Chart.js -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body x-data="{ currentTab: 'monitoring' }">
+
+    <!-- Top Navbar Matching Image 2 -->
+    <header class="argos-navbar">
+        <div class="argos-brand">
+            <img src="/static/icono_argos.png" alt="Argos Guard Logo">
+            <div class="argos-brand-text">
+                <div class="argos-brand-title">Argos Guard Enterprise</div>
+                <div class="argos-brand-sub">DESKTOP TACTICAL CONSOLE / V4.0.0</div>
+            </div>
+        </div>
+
+        <nav class="argos-nav-tabs">
+            <button @click="currentTab = 'monitoring'" :class="{ 'active': currentTab === 'monitoring' }" class="argos-tab-btn">
+                Monitoreo Activo
+            </button>
+            <button @click="currentTab = 'map'; setTimeout(() => window.dispatchEvent(new Event('resize')), 100);" :class="{ 'active': currentTab === 'map' }" class="argos-tab-btn">
+                Mapa Táctico
+            </button>
+            <button @click="currentTab = 'history'" :class="{ 'active': currentTab === 'history' }" class="argos-tab-btn">
+                Historial Eventos
+            </button>
+            <button @click="currentTab = 'video'" :class="{ 'active': currentTab === 'video' }" class="argos-tab-btn">
+                Video Vigilancia
+            </button>
+            <button @click="currentTab = 'osint'" :class="{ 'active': currentTab === 'osint' }" class="argos-tab-btn">
+                OSINT
+            </button>
+            <button @click="currentTab = 'config'" :class="{ 'active': currentTab === 'config' }" class="argos-tab-btn">
+                Configuración
+            </button>
+        </nav>
+
+        <div class="argos-top-status">
+            <div class="api-status-badge" title="API Status">
+                <span class="dot" style="background-color: var(--mint-accent); box-shadow: 0 0 8px var(--mint-accent);"></span>
+                <span class="api-status-text">API<br>ONLINE</span>
+            </div>
+            <button class="btn-logout" onclick="window.location.href='/security/logout/'">
+                CERRAR SESIÓN
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Workspace Area -->
+    <div class="argos-main-layout">
+        {% block content %}{% endblock %}
+    </div>
+
+    <!-- Bottom Bar Matching Image 2 -->
+    <footer class="argos-footer">
+        <div class="footer-timestamp" x-data="{ time: '' }" x-init="
+            const updateTime = () => {
+                const d = new Date();
+                const pad = (n) => n.toString().padStart(2, '0');
+                time = `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()}|${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+            };
+            updateTime();
+            setInterval(updateTime, 1000);
+        " x-text="time">
+            {% now "d/m/Y|H:i:s" %}
+        </div>
+        <div>
+            Argos Guard Enterprise © Agencia de desarrollo y programacion @BetoGraf_Inc 2026
+        </div>
+    </footer>
+
+    <!-- Toasts & Audio Feedback -->
+    <div id="toast-container" style="position: fixed; bottom: 40px; right: 20px; z-index: 10000; display: flex; flex-direction: column; gap: 10px;"></div>
+    
+    <audio id="audio-recuperado" src="/static/sound/recuperado.mp3" preload="auto"></audio>
+    <audio id="audio-caida" src="/static/sound/caida.mp3" preload="auto"></audio>
+
+</body>
+</html>

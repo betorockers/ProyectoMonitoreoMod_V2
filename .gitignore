@@ -1,0 +1,74 @@
+# === Entornos virtuales ===
+.venv/
+venv/
+env/
+
+# === Secretos y credenciales ===
+.env
+.env.*
+!.env.example
+credenciales.txt
+*.pem
+*.key
+
+# === Python ===
+__pycache__/
+*.py[cod]
+*.so
+*.egg
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# === Node / Frontend ===
+node_modules/
+.next/
+out/
+dist/
+build/
+*.tsbuildinfo
+.turbo/
+pnpm-lock.yaml
+
+# === Binarios compilados / instaladores grandes ===
+desktop/ArgosGuard-Linux-v3.6.4/
+desktop/build_deb/opt/
+desktop/dependencies/
+backend/frontend_dist/
+backend/tools/
+*.exe
+*.bin
+
+# === Base de datos local y archivos generados ===
+*.db
+*.sqlite3
+*.enc.db
+db.sqlite3
+
+# === Nuitka y compilacion ===
+*.nuitka-crash-report.xml
+*.nuitka/
+nuitka-crash-report.xml
+*.dist/
+*.onefile-build/
+
+# === Logs y temporales ===
+*.log
+logs/
+tmp/
+temp/
+
+# === IDE ===
+.vscode/settings.json
+.idea/
+*.suo
+*.user
+
+# === OS ===
+.DS_Store
+Thumbs.db
+desktop.ini

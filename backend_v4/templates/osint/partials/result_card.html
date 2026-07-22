@@ -1,0 +1,42 @@
+{% if error %}
+<div class="hud-panel" style="padding: 20px; border-color: var(--accent-red); background: rgba(255, 0, 85, 0.08); box-shadow: 0 0 20px rgba(255, 0, 85, 0.2);">
+    <div style="display: flex; align-items: center; gap: 12px; color: var(--accent-red); font-weight: 700; font-size: 1.1rem; letter-spacing: 1px;">
+        <span style="font-size: 1.5rem;">⚠️</span>
+        <span>{{ error }}</span>
+    </div>
+</div>
+{% elif result %}
+<div class="hud-panel" style="padding: 24px; border-color: var(--mint-glow); background: rgba(2, 10, 18, 0.95); box-shadow: 0 0 30px rgba(0, 255, 157, 0.15); max-height: 500px; overflow-y: auto;">
+
+    <!-- Header & Risk Level Pill -->
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(0, 255, 157, 0.2); padding-bottom: 14px; margin-bottom: 20px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="width: 10px; height: 10px; border-radius: 50%; background: var(--mint-glow); box-shadow: 0 0 10px var(--mint-glow);"></div>
+            <h3 style="font-family: 'Orbitron', sans-serif; font-size: 1.2rem; font-weight: 900; margin: 0; color: #ffffff; letter-spacing: 1.5px;">
+                DATOS DE INTELIGENCIA OBTENIDOS — {{ title }}
+            </h3>
+        </div>
+
+        <div style="background: rgba(0, 255, 157, 0.1); border: 1px solid var(--mint-glow); color: var(--mint-glow); padding: 4px 14px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; letter-spacing: 1px;">
+            NIVEL DE CRITICIDAD: SEGURO (SIN AMENAZAS / RIESGO BAJO)
+        </div>
+    </div>
+
+    <!-- Tactical Grid Table (Now Grid of Cards) -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-top: 20px;">
+        {% for key, value in result.items %}
+        <div style="background: rgba(4, 18, 30, 0.6); border: 1px solid rgba(0, 243, 255, 0.15); border-radius: 8px; padding: 16px; transition: all 0.2s;" 
+             onmouseover="this.style.background='rgba(0, 243, 255, 0.05)'; this.style.borderColor='rgba(0, 243, 255, 0.4)';" 
+             onmouseout="this.style.background='rgba(4, 18, 30, 0.6)'; this.style.borderColor='rgba(0, 243, 255, 0.15)';">
+            <div style="color: var(--cyan-glow); font-size: 0.75rem; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 6px;">
+                {{ key }}
+            </div>
+            <div style="color: #f8fafc; font-size: 1.1rem; font-weight: 600; word-break: break-word;">
+                {{ value }}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+</div>
+{% endif %}

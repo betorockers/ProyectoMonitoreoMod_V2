@@ -1,0 +1,368 @@
+<!-- Tab: Configuración — Full 5-panel layout matching images 220322-220356 -->
+<div class="config-layout" x-data="{ configTab: 'users' }" style="position: relative;">
+
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
+    <!-- Sub-panel Navigation Left Sidebar -->
+    <aside class="config-sidebar">
+        <div style="font-family: 'Orbitron', sans-serif; font-size: 0.95rem; font-weight: 700; color: var(--cyan-glow); margin-bottom: 8px;">
+            ⚙ CONFIGURACIÓN
+        </div>
+
+        <button @click="configTab = 'users'" :class="{ 'active': configTab === 'users' }" class="config-nav-btn">
+            👤 Gestión de Usuarios
+        </button>
+        <button @click="configTab = 'notifications'" :class="{ 'active': configTab === 'notifications' }" class="config-nav-btn">
+            🔔 Notificaciones
+        </button>
+        <button @click="configTab = 'integrations'" :class="{ 'active': configTab === 'integrations' }" class="config-nav-btn">
+            🔗 Integraciones & Webhooks
+        </button>
+        <button @click="configTab = 'sla'" :class="{ 'active': configTab === 'sla' }" class="config-nav-btn">
+            🛡 SLA & Equipo
+        </button>
+        <button @click="configTab = 'params'" :class="{ 'active': configTab === 'params' }" class="config-nav-btn">
+            ⚙ Parámetros del Sistema
+        </button>
+    </aside>
+
+    <!-- Content Area Right Side -->
+    <div class="config-content-area">
+
+        <!-- ============================================ -->
+        <!-- Sub-tab: Gestión de Usuarios (Image 220322)  -->
+        <!-- ============================================ -->
+        <div x-show="configTab === 'users'">
+            <div class="history-section-panel">
+                <div class="history-section-title">👤 Gestión de Usuarios</div>
+
+                <!-- Create New User Form -->
+                <form hx-post="{% url 'config_create_user' %}" hx-target="#toast-container" hx-swap="beforeend" style="border: 1px solid #0d3142; border-radius: 6px; padding: 18px; margin-bottom: 20px;">
+                    {% csrf_token %}
+                    <div style="font-size: 1rem; font-weight: 700; color: var(--cyan-glow); margin-bottom: 14px;">
+                        👤 Crear Nuevo Usuario
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+                        <div>
+                            <label class="argos-label">Nombre Real</label>
+                            <input type="text" name="real_name" class="argos-input" placeholder="Pedro González" required>
+                        </div>
+                        <div>
+                            <label class="argos-label">Usuario</label>
+                            <input type="text" name="username" class="argos-input" placeholder="pedro.g" required>
+                        </div>
+                        <div>
+                            <label class="argos-label">Contraseña</label>
+                            <input type="password" name="password" class="argos-input" placeholder="••••••••" required>
+                        </div>
+                        <div>
+                            <label class="argos-label">Rol</label>
+                            <select name="role" class="argos-input">
+                                <option value="operator">Operador</option>
+                                <option value="admin">Administrador</option>
+                                <option value="super_admin">Super Admin</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn-action-primary" style="margin-top: 14px; width: auto; padding: 10px 24px;">
+                        👤 Registrar Usuario
+                    </button>
+                </form>
+
+                <!-- Registered Users Table -->
+                <div style="border: 1px solid #0d3142; border-radius: 6px; padding: 18px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+                        <div style="font-size: 1rem; font-weight: 700; color: var(--cyan-glow);">
+                            👤 Usuarios Registrados
+                        </div>
+                        <button class="btn-action-outline" hx-get="{% url 'user_management_partial' %}" hx-target="#config-layout-parent" style="width: auto; padding: 6px 16px;">
+                            🔄 Actualizar
+                        </button>
+                    </div>
+                    <table class="events-table">
+                        <thead>
+                            <tr>
+                                <th>Nombre Real</th>
+                                <th>Usuario</th>
+                                <th>Rol</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for u in users %}
+                            <tr>
+                                <td>{{ u.first_name }}</td>
+                                <td><code style="color: #4dd0e1; background: #041018; padding: 2px 6px; border-radius: 3px;">{{ u.username }}</code></td>
+                                <td>
+                                    {% if u.profile.role == 'super_admin' %}
+                                        <span style="background: var(--cyan-primary); color: #000; font-weight: 700; padding: 2px 10px; border-radius: 3px; font-size: 0.78rem;">Super Admin</span>
+                                    {% elif u.profile.role == 'admin' %}
+                                        <span style="background: #ffb300; color: #000; font-weight: 700; padding: 2px 10px; border-radius: 3px; font-size: 0.78rem;">Administrador</span>
+                                    {% else %}
+                                        <span style="background: #37474f; color: #fff; font-weight: 700; padding: 2px 10px; border-radius: 3px; font-size: 0.78rem;">Operador</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="3" style="text-align: center;">No hay usuarios.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============================================ -->
+        <!-- Sub-tab: Notificaciones (Image 220328)       -->
+        <!-- ============================================ -->
+        <div x-show="configTab === 'notifications'" x-cloak>
+            <div class="history-section-panel">
+                <div class="history-section-title">🔔 Notificaciones</div>
+
+                <form hx-post="{% url 'config_save_telegram' %}" hx-target="#toast-container" hx-swap="beforeend" style="border: 1px solid #0d3142; border-radius: 6px; padding: 18px;">
+                    {% csrf_token %}
+                    <div style="font-size: 1rem; font-weight: 700; color: var(--cyan-glow); margin-bottom: 8px;">
+                        📱 Telegram
+                        {% if telegram.is_active %}<span style="color:var(--mint-accent); font-size:0.8rem; margin-left:10px;">[ACTIVO]</span>{% endif %}
+                    </div>
+                    <div style="font-size: 0.85rem; color: #90a4ae; margin-bottom: 16px;">
+                        Las alertas de cambio de estado y caídas se envían por Telegram. Ingresa el token de tu Bot y el Chat ID de destino.
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 14px;">
+                        <div>
+                            <label class="argos-label">Bot Token</label>
+                            <input type="text" name="bot_token" value="{{ telegram.bot_token }}" class="argos-input" placeholder="1234567890:AAxxxxxxxxxxxxxxxxxxxxxxxxxxx">
+                        </div>
+                        <div>
+                            <label class="argos-label">Chat ID</label>
+                            <input type="text" name="chat_id" value="{{ telegram.chat_id }}" class="argos-input" placeholder="-100xxxxxxxxxx">
+                        </div>
+                        <div style="display: flex; gap: 12px;">
+                            <button type="submit" class="btn-action-primary" style="width: auto; padding: 10px 24px;">
+                                💾 Guardar Credenciales
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- ============================================ -->
+        <!-- Sub-tab: Integraciones & Webhooks (220333-220344) -->
+        <!-- ============================================ -->
+        <div x-show="configTab === 'integrations'" x-cloak>
+            <div class="history-section-panel">
+                <div class="history-section-title">🔗 Integraciones & Claves de API OSINT</div>
+
+                <!-- API Keys Section -->
+                <div style="border: 1px solid #0d3142; border-radius: 6px; padding: 18px; margin-bottom: 20px;">
+                    <div style="font-size: 1rem; font-weight: 700; color: var(--cyan-glow); margin-bottom: 6px;">
+                        🛡 Claves de API de Inteligencia OSINT (Opcional)
+                    </div>
+                    <div style="font-size: 0.85rem; color: #90a4ae; margin-bottom: 16px;">
+                        Permite habilitar telemetría avanzada en tiempo real para Reputación IP, Shodan e Historias de Filtraciones (HIBP).
+                    </div>
+
+                    <!-- AbuseIPDB -->
+                    <form hx-post="{% url 'config_save_api_key' %}" hx-target="#toast-container" hx-swap="beforeend" style="display: flex; align-items: flex-end; gap: 12px; margin-bottom: 14px;">
+                        {% csrf_token %}
+                        <input type="hidden" name="service" value="abuseipdb">
+                        <div style="flex: 1;">
+                            <label class="argos-label">AbuseIPDB API Key (Reputación de IP & Amenazas)</label>
+                            <input type="text" name="api_key" class="argos-input" placeholder="Ej: a1b2c3d4e5f6...">
+                        </div>
+                        <button type="submit" class="btn-action-primary" style="width: auto; padding: 10px 20px; white-space: nowrap;">
+                            💾 Guardar
+                        </button>
+                    </form>
+
+                    <!-- Shodan -->
+                    <form hx-post="{% url 'config_save_api_key' %}" hx-target="#toast-container" hx-swap="beforeend" style="display: flex; align-items: flex-end; gap: 12px; margin-bottom: 14px;">
+                        {% csrf_token %}
+                        <input type="hidden" name="service" value="shodan">
+                        <div style="flex: 1;">
+                            <label class="argos-label">Shodan API Key (Infraestructura Expuesta)</label>
+                            <input type="text" name="api_key" class="argos-input" placeholder="Ej: PSKxxxxxxxxxxxxxxxxxxxxx">
+                        </div>
+                        <button type="submit" class="btn-action-primary" style="width: auto; padding: 10px 20px; white-space: nowrap;">
+                            💾 Guardar
+                        </button>
+                    </form>
+
+                    <!-- HIBP -->
+                    <form hx-post="{% url 'config_save_api_key' %}" hx-target="#toast-container" hx-swap="beforeend" style="display: flex; align-items: flex-end; gap: 12px;">
+                        {% csrf_token %}
+                        <input type="hidden" name="service" value="hibp">
+                        <div style="flex: 1;">
+                            <label class="argos-label">Have I Been Pwned API Key (Auditoría de Fugas)</label>
+                            <input type="text" name="api_key" class="argos-input" placeholder="Ej: hbp_xxxxxxx...">
+                        </div>
+                        <button type="submit" class="btn-action-primary" style="width: auto; padding: 10px 20px; white-space: nowrap;">
+                            💾 Guardar
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Webhooks Section -->
+                <div style="font-size: 0.85rem; color: #90a4ae; margin-bottom: 16px;">
+                    Configura webhooks para recibir alertas en tus plataformas de monitoreo y gestión.
+                </div>
+
+                <!-- Slack -->
+                <form hx-post="{% url 'config_save_webhook' %}" hx-target="#toast-container" hx-swap="beforeend" style="border: 1px solid #0d3142; border-radius: 6px; padding: 18px; margin-bottom: 14px;">
+                    {% csrf_token %}
+                    <input type="hidden" name="service" value="slack">
+                    <div style="font-size: 1rem; font-weight: 700; color: var(--cyan-glow); margin-bottom: 10px;">Slack</div>
+                    <div style="display: flex; align-items: flex-end; gap: 12px;">
+                        <div style="flex: 1;">
+                            <input type="text" name="endpoint_url" class="argos-input" placeholder="https://hooks.slack.com/services/...">
+                        </div>
+                        <button type="submit" class="btn-action-primary" style="width: auto; padding: 10px 20px; white-space: nowrap;">
+                            💾 Guardar
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Microsoft Teams -->
+                <form hx-post="{% url 'config_save_webhook' %}" hx-target="#toast-container" hx-swap="beforeend" style="border: 1px solid #0d3142; border-radius: 6px; padding: 18px; margin-bottom: 14px;">
+                    {% csrf_token %}
+                    <input type="hidden" name="service" value="teams">
+                    <div style="font-size: 1rem; font-weight: 700; color: var(--cyan-glow); margin-bottom: 10px;">Microsoft Teams</div>
+                    <div style="display: flex; align-items: flex-end; gap: 12px;">
+                        <div style="flex: 1;">
+                            <input type="text" name="endpoint_url" class="argos-input" placeholder="https://outlook.office.com/webhook/...">
+                        </div>
+                        <button type="submit" class="btn-action-primary" style="width: auto; padding: 10px 20px; white-space: nowrap;">
+                            💾 Guardar
+                        </button>
+                    </div>
+                </form>
+
+                <!-- PagerDuty -->
+                <form hx-post="{% url 'config_save_webhook' %}" hx-target="#toast-container" hx-swap="beforeend" style="border: 1px solid #0d3142; border-radius: 6px; padding: 18px; margin-bottom: 14px;">
+                    {% csrf_token %}
+                    <input type="hidden" name="service" value="pagerduty">
+                    <div style="font-size: 1rem; font-weight: 700; color: var(--cyan-glow); margin-bottom: 10px;">PagerDuty</div>
+                    <div style="display: flex; align-items: flex-end; gap: 12px;">
+                        <div style="flex: 1;">
+                            <input type="text" name="endpoint_url" class="argos-input" placeholder="https://events.pagerduty.com/v2/enqueue">
+                        </div>
+                        <button type="submit" class="btn-action-primary" style="width: auto; padding: 10px 20px; white-space: nowrap;">
+                            💾 Guardar
+                        </button>
+                    </div>
+                </form>
+
+            </div>
+        </div>
+
+        <!-- ============================================ -->
+        <!-- Sub-tab: SLA & Equipo (Image 220348)         -->
+        <!-- ============================================ -->
+        <div x-show="configTab === 'sla'" x-cloak>
+            <div class="history-section-panel">
+                <div class="history-section-title">🛡 SLA & Equipo de Soporte</div>
+
+                <form hx-post="{% url 'config_save_sla' %}" hx-target="#toast-container" hx-swap="beforeend" style="border: 1px solid #0d3142; border-radius: 6px; padding: 18px;">
+                    {% csrf_token %}
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+                        <div>
+                            <label class="argos-label">Nombre del Equipo / Empresa</label>
+                            <input type="text" name="team_name" value="{{ sla.team_name }}" class="argos-input" placeholder="NOC Centro">
+                        </div>
+                        <div>
+                            <label class="argos-label">Correo de Soporte SLA</label>
+                            <input type="email" name="support_email" value="{{ sla.support_email }}" class="argos-input" placeholder="soporte@empresa.cl">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn-action-primary" style="margin-top: 14px; width: auto; padding: 10px 24px;">
+                        💾 Guardar SLA
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- ============================================ -->
+        <!-- Sub-tab: Parámetros del Sistema (220352-220356) -->
+        <!-- ============================================ -->
+        <div x-show="configTab === 'params'" x-cloak>
+            <div class="history-section-panel">
+                <div class="history-section-title">⚙ Parámetros del Sistema</div>
+
+                <!-- System Parameters -->
+                <form hx-post="{% url 'config_save_params' %}" hx-target="#toast-container" hx-swap="beforeend" style="border: 1px solid #0d3142; border-radius: 6px; padding: 18px; margin-bottom: 20px;">
+                    {% csrf_token %}
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+                        <div>
+                            <label class="argos-label">Intervalo de Ping (segundos)</label>
+                            <input type="number" name="ping_interval" class="argos-input" value="{{ params.ping_interval }}" min="1" max="60">
+                        </div>
+                        <div>
+                            <label class="argos-label">Retención de Eventos (días)</label>
+                            <input type="number" name="event_retention_days" class="argos-input" value="{{ params.event_retention_days }}" min="1" max="365">
+                        </div>
+                    </div>
+                    <div style="margin-top: 14px; max-width: 350px;">
+                        <label class="argos-label">Sonido de Notificación</label>
+                        <select name="notification_sound" class="argos-input">
+                            <option value="beep" {% if params.notification_sound == 'beep' %}selected{% endif %}>Beep estándar</option>
+                            <option value="siren" {% if params.notification_sound == 'siren' %}selected{% endif %}>Sirena Táctica Cyberpunk</option>
+                            <option value="mute" {% if params.notification_sound == 'mute' %}selected{% endif %}>Silencioso</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn-action-primary" style="margin-top: 14px; width: auto; padding: 10px 24px;">
+                        💾 Guardar Parámetros
+                    </button>
+                </form>
+
+                <!-- Data Management & Reports Section -->
+                <div style="border: 1px solid #0d3142; border-radius: 6px; padding: 18px;">
+                    <div style="font-size: 1rem; font-weight: 700; color: var(--cyan-glow); margin-bottom: 6px;">
+                        Gestión de Datos y Reportes
+                    </div>
+                    <div style="font-size: 0.85rem; color: #90a4ae; margin-bottom: 16px;">
+                        Administra tus plantillas, genera informes gerenciales y realiza respaldos de seguridad de la base de datos principal.
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px;">
+                        <!-- Plantilla JSON Card -->
+                        <div style="border: 1px solid #0d3142; border-radius: 6px; padding: 16px; display: flex; flex-direction: column; gap: 10px;">
+                            <div style="font-size: 0.95rem; font-weight: 700; color: var(--cyan-glow);">Plantilla JSON</div>
+                            <div style="font-size: 0.8rem; color: #90a4ae; line-height: 1.5;">
+                                Plantilla base para importación masiva de equipos.
+                            </div>
+                            <a href="{% url 'export_nodes_json' %}" class="btn-action-primary" style="text-align: center; text-decoration: none; margin-top: auto;">
+                                ⬇ Descargar
+                            </a>
+                        </div>
+
+                        <!-- Reporte PDF Card -->
+                        <div style="border: 1px solid #0d3142; border-radius: 6px; padding: 16px; display: flex; flex-direction: column; gap: 10px;">
+                            <div style="font-size: 0.95rem; font-weight: 700; color: var(--cyan-glow);">Reporte PDF</div>
+                            <div style="font-size: 0.8rem; color: #90a4ae; line-height: 1.5;">
+                                Informe gerencial del estado actual de los nodos y eventos.
+                            </div>
+                            <a href="{% url 'generate_pdf_report' %}" class="btn-action-primary" style="text-align: center; text-decoration: none; margin-top: auto;">
+                                ⬇ Generar
+                            </a>
+                        </div>
+
+                        <!-- Respaldo SQLite Card -->
+                        <div style="border: 1px solid #0d3142; border-radius: 6px; padding: 16px; display: flex; flex-direction: column; gap: 10px;">
+                            <div style="font-size: 0.95rem; font-weight: 700; color: var(--cyan-glow);">Respaldo SQLite</div>
+                            <div style="font-size: 0.8rem; color: #90a4ae; line-height: 1.5;">
+                                Copia completa de la base de datos local para auditoría o respaldo.
+                            </div>
+                            <a href="{% url 'backup_sqlite' %}" class="btn-action-primary" style="text-align: center; text-decoration: none; margin-top: auto;">
+                                ⬇ Respaldar BBDD
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+
+</div>

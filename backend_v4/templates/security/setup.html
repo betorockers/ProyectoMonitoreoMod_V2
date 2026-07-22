@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Argos Guard - Inicialización del Sistema</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-dark: #050d12;
+            --panel-bg: #091a24;
+            --cyan-primary: #00bcd4;
+            --cyan-glow: #00f3ff;
+            --mint-accent: #00e676;
+            --red-alert: #ff1744;
+            --text-main: #e0e0e0;
+            --text-muted: #90a4ae;
+            --border-color: #0d3142;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            font-family: 'Rajdhani', sans-serif;
+            color: var(--text-main);
+        }
+
+        .setup-container {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px 30px;
+            width: 480px;
+            max-width: 95vw;
+            max-height: 95vh;
+            overflow-y: auto;
+            box-shadow: 0 0 40px rgba(0, 188, 212, 0.15);
+        }
+        
+        /* Hide scrollbar for container */
+        .setup-container::-webkit-scrollbar {
+            display: none;
+        }
+
+        .setup-logo {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .setup-logo img {
+            height: 50px;
+            width: auto;
+            margin-bottom: 5px;
+        }
+
+        .setup-logo-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-align: center;
+        }
+
+        .setup-logo-sub {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            text-align: center;
+            margin-top: 2px;
+        }
+
+        .setup-error {
+            background: rgba(255, 23, 68, 0.1);
+            border: 1px solid var(--red-alert);
+            border-radius: 4px;
+            color: var(--red-alert);
+            font-size: 0.85rem;
+            padding: 8px;
+            text-align: center;
+            margin-bottom: 15px;
+        }
+
+        .section-title {
+            font-size: 0.85rem;
+            color: var(--cyan-primary);
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .argos-input {
+            width: 100%;
+            background: rgba(4, 16, 24, 0.8);
+            border: 1px solid var(--border-color);
+            color: var(--cyan-glow);
+            padding: 10px 12px;
+            border-radius: 4px;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 0.95rem;
+            margin-bottom: 10px;
+            box-sizing: border-box;
+            transition: all 0.2s;
+        }
+        
+        .argos-input::placeholder {
+            color: #455a64;
+        }
+
+        .argos-input:focus {
+            outline: none;
+            border-color: var(--cyan-glow);
+            box-shadow: 0 0 10px rgba(0, 243, 255, 0.2);
+        }
+
+        .password-rules {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            margin-bottom: 15px;
+            font-size: 0.7rem;
+            color: var(--mint-accent);
+        }
+
+        .rule-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .rule-icon {
+            font-size: 0.75rem;
+        }
+
+        .btn-submit {
+            width: 100%;
+            background: #26a69a;
+            border: none;
+            color: #000;
+            font-weight: 700;
+            padding: 12px;
+            font-size: 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            text-transform: uppercase;
+            transition: all 0.2s;
+            font-family: 'Rajdhani', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-submit:hover {
+            background: var(--mint-accent);
+            box-shadow: 0 0 16px rgba(0, 230, 118, 0.4);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="setup-container">
+        <div class="setup-logo">
+            <img src="/static/icono_argos.png" alt="Argos Guard Logo">
+            <div class="setup-logo-title">Inicialización del Sistema</div>
+            <div class="setup-logo-sub">Registro de SuperAdministrador</div>
+        </div>
+
+        {% if error %}
+        <div class="setup-error">{{ error }}</div>
+        {% endif %}
+
+        <form method="post" action="{% url 'setup' %}">
+            {% csrf_token %}
+            
+            <div class="section-title">
+                <span>👤</span> DATOS DEL ADMINISTRADOR
+            </div>
+            
+            <input type="text" name="real_name" class="argos-input" placeholder="Nombre Real" value="{{ request.POST.real_name|default:'' }}" required>
+            <input type="text" name="username" class="argos-input" placeholder="Usuario" value="{{ request.POST.username|default:'' }}" required>
+            <div class="input-group" style="position: relative; margin-bottom: 10px;">
+                <input type="password" name="password" id="setup-pass1" class="argos-input" placeholder="Contraseña" style="margin-bottom: 0; padding-right: 40px;" required>
+                <span class="toggle-icon" style="position: absolute; right: 14px; top: 50%; transform: translateY(-50%); cursor: pointer; color: var(--text-muted); font-size: 1.1rem;" onclick="const p = document.getElementById('setup-pass1'); p.type = p.type === 'password' ? 'text' : 'password'; this.innerText = p.type === 'password' ? '👁️' : '🙈';">👁️</span>
+            </div>
+            
+            <div class="input-group" style="position: relative; margin-bottom: 10px;">
+                <input type="password" name="password_confirm" id="setup-pass2" class="argos-input" placeholder="Confirmar Contraseña" style="margin-bottom: 0; padding-right: 40px;" required>
+                <span class="toggle-icon" style="position: absolute; right: 14px; top: 50%; transform: translateY(-50%); cursor: pointer; color: var(--text-muted); font-size: 1.1rem;" onclick="const p = document.getElementById('setup-pass2'); p.type = p.type === 'password' ? 'text' : 'password'; this.innerText = p.type === 'password' ? '👁️' : '🙈';">👁️</span>
+            </div>
+
+            <div class="password-rules">
+                <div class="rule-item"><span class="rule-icon">✔</span> 8-12 Caracteres</div>
+                <div class="rule-item"><span class="rule-icon">✔</span> 1 Mayúscula</div>
+                <div class="rule-item"><span class="rule-icon">✔</span> 1 Minúscula</div>
+                <div class="rule-item"><span class="rule-icon">✔</span> 1 Número</div>
+                <div class="rule-item"><span class="rule-icon">✔</span> 1 Símbolo (!@#$%...)</div>
+                <div class="rule-item"><span class="rule-icon">✔</span> Contraseñas coinciden</div>
+            </div>
+
+            <div class="section-title">
+                <span>🔑</span> CLAVE DE ACTIVACIÓN
+            </div>
+            
+            <input type="text" name="serial" class="argos-input" placeholder="Ej: ARGOS-BASIC-TEST-KEY" value="{{ request.POST.serial|default:'' }}" required style="margin-bottom: 20px;">
+
+            <button type="submit" class="btn-submit">
+                <span style="font-size: 1.1rem;">🛡</span> INICIALIZAR SISTEMA
+            </button>
+        </form>
+    </div>
+
+</body>
+</html>

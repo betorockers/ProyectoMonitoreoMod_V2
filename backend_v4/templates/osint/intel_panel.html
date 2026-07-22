@@ -1,0 +1,272 @@
+<div class="hud-panel" style="padding: 28px;">
+
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(0,243,255,0.2); padding-bottom: 14px; margin-bottom: 24px;">
+        <div>
+            <h1 style="font-family: 'Orbitron', sans-serif; font-size: 1.8rem; font-weight: 900; margin: 4px 0 0 0; color: #ffffff; letter-spacing: 1.5px; text-shadow: 0 0 12px rgba(0,243,255,0.4);">
+                SUITE DE CONSULTAS AVANZADAS
+            </h1>
+        </div>
+    </div>
+
+    <div x-data="{ osintSubTab: 'ppu' }">
+
+        <!-- 1. INTELIGENCIA LOCAL (CHILE) & CLIMA -->
+        <div style="margin-bottom: 16px;">
+            <div style="font-size: 0.75rem; color: #64748b; letter-spacing: 1.5px; font-weight: 700; margin-bottom: 8px;">INTELIGENCIA LOCAL (CHILE) & CLIMA</div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <button @click="osintSubTab = 'ppu'" :class="{ 'active': osintSubTab === 'ppu' }" class="btn-cyber-tab">🚗 PPU</button>
+                <button @click="osintSubTab = 'rut'" :class="{ 'active': osintSubTab === 'rut' }" class="btn-cyber-tab">🪪 RUT</button>
+                <button @click="osintSubTab = 'geografia'" :class="{ 'active': osintSubTab === 'geografia' }" class="btn-cyber-tab">📍 Geografía y Clima</button>
+            </div>
+        </div>
+
+        <!-- 2. INTELIGENCIA DE RED, AMENAZAS & AMBIENTE DIGITAL (12 MÓDULOS) -->
+        <div style="margin-bottom: 24px;">
+            <div style="font-size: 0.75rem; color: #64748b; letter-spacing: 1.5px; font-weight: 700; margin-bottom: 8px;">INTELIGENCIA DE RED, AMENAZAS & AMBIENTE DIGITAL (12 MÓDULOS)</div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;">
+                <button @click="osintSubTab = 'fugas'" :class="{ 'active': osintSubTab === 'fugas' }" class="btn-cyber-tab">🔑 Fugas de Datos</button>
+                <button @click="osintSubTab = 'reputacion'" :class="{ 'active': osintSubTab === 'reputacion' }" class="btn-cyber-tab">🛡️ Reputación IP</button>
+                <button @click="osintSubTab = 'infra'" :class="{ 'active': osintSubTab === 'infra' }" class="btn-cyber-tab">🏢 Infraestructura</button>
+                <button @click="osintSubTab = 'whois'" :class="{ 'active': osintSubTab === 'whois' }" class="btn-cyber-tab">📜 Registro WHOIS</button>
+                <button @click="osintSubTab = 'ipgeo'" :class="{ 'active': osintSubTab === 'ipgeo' }" class="btn-cyber-tab">📍 IP Geo</button>
+                <button @click="osintSubTab = 'dns'" :class="{ 'active': osintSubTab === 'dns' }" class="btn-cyber-tab">🌐 DNS</button>
+                <button @click="osintSubTab = 'web'" :class="{ 'active': osintSubTab === 'web' }" class="btn-cyber-tab">🔍 Analizador Web</button>
+                <button @click="osintSubTab = 'puertos'" :class="{ 'active': osintSubTab === 'puertos' }" class="btn-cyber-tab">🌐 Puertos</button>
+                <button @click="osintSubTab = 'subdominios'" :class="{ 'active': osintSubTab === 'subdominios' }" class="btn-cyber-tab">🌐 Subdominios</button>
+            </div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <button @click="osintSubTab = 'email'" :class="{ 'active': osintSubTab === 'email' }" class="btn-cyber-tab">✉️ Email</button>
+                <button @click="osintSubTab = 'traceroute'" :class="{ 'active': osintSubTab === 'traceroute' }" class="btn-cyber-tab">🧭 Traceroute</button>
+            </div>
+        </div>
+
+        <!-- Dynamic Content per Tab -->
+        <div>
+            <!-- PPU Module -->
+            <div x-show="osintSubTab === 'ppu'">
+                <div class="hud-panel" style="padding: 20px; background: rgba(2, 6, 14, 0.95); margin-bottom: 24px;">
+                    <form hx-get="{% url 'query_ppu_partial' %}" hx-target="#ppu-results" hx-indicator="#loader-ppu" style="display: flex; gap: 12px; align-items: center;">
+                        <div style="flex: 1;"><input type="text" name="ppu" placeholder="Ingrese Patente Vehicular (PPU) — Ej: AA1234 o AABB12" class="input-cyber" required></div>
+                        <button type="submit" class="btn-cyber" style="padding: 12px 32px;"><span>🔍 BUSCAR PPU</span></button>
+                    </form>
+                    <div id="loader-ppu" class="htmx-indicator" style="margin-top: 14px; text-align: center; color: var(--cyan-glow); font-weight: 700; font-size: 0.9rem; letter-spacing: 1.5px;">⚡ CONSULTA EN TIEMPO REAL...</div>
+                </div>
+                <div id="ppu-results">
+                    <div class="hud-panel" style="padding: 30px; text-align: center; color: #64748b;">
+                        <div style="font-size: 2rem; margin-bottom: 8px;">📡</div><div style="font-size: 0.9rem; letter-spacing: 1px;">INGRESE PATENTE VEHICULAR (PPU) PARA OBTENER RESULTADOS TÁCTICOS.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RUT Module -->
+            <div x-show="osintSubTab === 'rut'" x-cloak>
+                <div class="hud-panel" style="padding: 20px; background: rgba(2, 6, 14, 0.95); margin-bottom: 24px;">
+                    <form hx-get="{% url 'query_rut_partial' %}" hx-target="#rut-results" hx-indicator="#loader-rut" style="display: flex; gap: 12px; align-items: center;">
+                        <div style="flex: 1;"><input type="text" name="rut" placeholder="Ingrese RUT sin puntos ni guion — Ej: 111111111 o 11.111.111-1" class="input-cyber" required></div>
+                        <button type="submit" class="btn-cyber" style="padding: 12px 32px;"><span>🔍 BUSCAR RUT</span></button>
+                    </form>
+                    <div id="loader-rut" class="htmx-indicator" style="margin-top: 14px; text-align: center; color: var(--cyan-glow); font-weight: 700; font-size: 0.9rem; letter-spacing: 1.5px;">⚡ CONSULTA EN TIEMPO REAL...</div>
+                </div>
+                <div id="rut-results">
+                    <div class="hud-panel" style="padding: 30px; text-align: center; color: #64748b;">
+                        <div style="font-size: 2rem; margin-bottom: 8px;">📡</div><div style="font-size: 0.9rem; letter-spacing: 1px;">INGRESE RUT PARA OBTENER RESULTADOS TÁCTICOS.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DNS Module -->
+            <div x-show="osintSubTab === 'dns'" x-cloak>
+                <div class="hud-panel" style="padding: 20px; background: rgba(2, 6, 14, 0.95); margin-bottom: 24px;">
+                    <form hx-get="{% url 'query_dns_partial' %}" hx-target="#dns-results" hx-indicator="#loader-dns" style="display: flex; gap: 12px; align-items: center;">
+                        <div style="flex: 1;"><input type="text" name="domain" placeholder="Ingrese Dominio Web — Ej: betograf.cl" class="input-cyber" required></div>
+                        <button type="submit" class="btn-cyber" style="padding: 12px 32px;"><span>🔍 RESOLVER DNS</span></button>
+                    </form>
+                    <div id="loader-dns" class="htmx-indicator" style="margin-top: 14px; text-align: center; color: var(--cyan-glow); font-weight: 700; font-size: 0.9rem; letter-spacing: 1.5px;">⚡ CONSULTA EN TIEMPO REAL...</div>
+                </div>
+                <div id="dns-results">
+                    <div class="hud-panel" style="padding: 30px; text-align: center; color: #64748b;">
+                        <div style="font-size: 2rem; margin-bottom: 8px;">📡</div><div style="font-size: 0.9rem; letter-spacing: 1px;">INGRESE DOMINIO PARA OBTENER RESULTADOS TÁCTICOS.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Geografia Module -->
+            <div x-show="osintSubTab === 'geografia'" x-cloak>
+                <div class="hud-panel" style="padding: 20px; background: rgba(2, 6, 14, 0.95); margin-bottom: 24px;">
+                    <form hx-get="{% url 'query_geografia_partial' %}" hx-target="#geografia-results" hx-indicator="#loader-geo" style="display: flex; gap: 12px; align-items: center;">
+                        <div style="flex: 1;"><input type="text" name="city" placeholder="Ingrese Ciudad de Chile — Ej: Santiago, Valparaiso" class="input-cyber" required></div>
+                        <button type="submit" class="btn-cyber" style="padding: 12px 32px;"><span>🔍 OBTENER CLIMA</span></button>
+                    </form>
+                    <div id="loader-geo" class="htmx-indicator" style="margin-top: 14px; text-align: center; color: var(--cyan-glow); font-weight: 700; font-size: 0.9rem; letter-spacing: 1.5px;">⚡ CONSULTA EN TIEMPO REAL...</div>
+                </div>
+                <div id="geografia-results">
+                    <div class="hud-panel" style="padding: 30px; text-align: center; color: #64748b;">
+                        <div style="font-size: 2rem; margin-bottom: 8px;">📡</div><div style="font-size: 0.9rem; letter-spacing: 1px;">INGRESE CIUDAD PARA OBTENER RESULTADOS TÁCTICOS.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Fugas Module -->
+            <div x-show="osintSubTab === 'fugas'" x-cloak>
+                <div class="hud-panel" style="padding: 20px; background: rgba(2, 6, 14, 0.95); margin-bottom: 24px;">
+                    <form hx-get="{% url 'query_fugas_partial' %}" hx-target="#fugas-results" hx-indicator="#loader-fugas" style="display: flex; gap: 12px; align-items: center;">
+                        <div style="flex: 1;"><input type="email" name="email" placeholder="Ingrese Email a investigar — Ej: target@gmail.com" class="input-cyber" required></div>
+                        <button type="submit" class="btn-cyber" style="padding: 12px 32px;"><span>🔍 BUSCAR FUGAS</span></button>
+                    </form>
+                    <div id="loader-fugas" class="htmx-indicator" style="margin-top: 14px; text-align: center; color: var(--cyan-glow); font-weight: 700; font-size: 0.9rem; letter-spacing: 1.5px;">⚡ CONSULTA EN TIEMPO REAL...</div>
+                </div>
+                <div id="fugas-results">
+                    <div class="hud-panel" style="padding: 30px; text-align: center; color: #64748b;">
+                        <div style="font-size: 2rem; margin-bottom: 8px;">📡</div><div style="font-size: 0.9rem; letter-spacing: 1px;">INGRESE EMAIL PARA OBTENER RESULTADOS TÁCTICOS.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Reputacion Module -->
+            <div x-show="osintSubTab === 'reputacion'" x-cloak>
+                <div class="hud-panel" style="padding: 20px; background: rgba(2, 6, 14, 0.95); margin-bottom: 24px;">
+                    <form hx-get="{% url 'query_reputacion_partial' %}" hx-target="#reputacion-results" hx-indicator="#loader-rep" style="display: flex; gap: 12px; align-items: center;">
+                        <div style="flex: 1;"><input type="text" name="ip" placeholder="Ingrese Dirección IP — Ej: 8.8.8.8" class="input-cyber" required></div>
+                        <button type="submit" class="btn-cyber" style="padding: 12px 32px;"><span>🔍 EVALUAR IP</span></button>
+                    </form>
+                    <div id="loader-rep" class="htmx-indicator" style="margin-top: 14px; text-align: center; color: var(--cyan-glow); font-weight: 700; font-size: 0.9rem; letter-spacing: 1.5px;">⚡ CONSULTA EN TIEMPO REAL...</div>
+                </div>
+                <div id="reputacion-results">
+                    <div class="hud-panel" style="padding: 30px; text-align: center; color: #64748b;">
+                        <div style="font-size: 2rem; margin-bottom: 8px;">📡</div><div style="font-size: 0.9rem; letter-spacing: 1px;">INGRESE IP PARA OBTENER RESULTADOS TÁCTICOS.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Infra Module -->
+            <div x-show="osintSubTab === 'infra'" x-cloak>
+                <div class="hud-panel" style="padding: 20px; background: rgba(2, 6, 14, 0.95); margin-bottom: 24px;">
+                    <form hx-get="{% url 'query_infra_partial' %}" hx-target="#infra-results" hx-indicator="#loader-infra" style="display: flex; gap: 12px; align-items: center;">
+                        <div style="flex: 1;"><input type="text" name="target" placeholder="Ingrese IP o Dominio para auditar Infraestructura (Shodan)" class="input-cyber" required></div>
+                        <button type="submit" class="btn-cyber" style="padding: 12px 32px;"><span>🔍 ESCANEAR INFRA</span></button>
+                    </form>
+                    <div id="loader-infra" class="htmx-indicator" style="margin-top: 14px; text-align: center; color: var(--cyan-glow); font-weight: 700; font-size: 0.9rem; letter-spacing: 1.5px;">⚡ CONSULTA EN TIEMPO REAL...</div>
+                </div>
+                <div id="infra-results">
+                    <div class="hud-panel" style="padding: 30px; text-align: center; color: #64748b;">
+                        <div style="font-size: 2rem; margin-bottom: 8px;">📡</div><div style="font-size: 0.9rem; letter-spacing: 1px;">INGRESE TARGET PARA OBTENER RESULTADOS TÁCTICOS.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- WHOIS Module -->
+            <div x-show="osintSubTab === 'whois'" x-cloak>
+                <div class="hud-panel" style="padding: 20px; background: rgba(2, 6, 14, 0.95); margin-bottom: 24px;">
+                    <form hx-get="{% url 'query_whois_partial' %}" hx-target="#whois-results" hx-indicator="#loader-whois" style="display: flex; gap: 12px; align-items: center;">
+                        <div style="flex: 1;"><input type="text" name="domain" placeholder="Ingrese Dominio Web — Ej: google.com" class="input-cyber" required></div>
+                        <button type="submit" class="btn-cyber" style="padding: 12px 32px;"><span>🔍 BUSCAR WHOIS</span></button>
+                    </form>
+                    <div id="loader-whois" class="htmx-indicator" style="margin-top: 14px; text-align: center; color: var(--cyan-glow); font-weight: 700; font-size: 0.9rem; letter-spacing: 1.5px;">⚡ CONSULTA EN TIEMPO REAL...</div>
+                </div>
+                <div id="whois-results">
+                    <div class="hud-panel" style="padding: 30px; text-align: center; color: #64748b;">
+                        <div style="font-size: 2rem; margin-bottom: 8px;">📡</div><div style="font-size: 0.9rem; letter-spacing: 1px;">INGRESE DOMINIO PARA OBTENER RESULTADOS TÁCTICOS.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- IP Geo Module -->
+            <div x-show="osintSubTab === 'ipgeo'" x-cloak>
+                <div class="hud-panel" style="padding: 20px; background: rgba(2, 6, 14, 0.95); margin-bottom: 24px;">
+                    <form hx-get="{% url 'query_ipgeo_partial' %}" hx-target="#ipgeo-results" hx-indicator="#loader-ipgeo" style="display: flex; gap: 12px; align-items: center;">
+                        <div style="flex: 1;"><input type="text" name="ip" placeholder="Ingrese Dirección IP — Ej: 1.1.1.1" class="input-cyber" required></div>
+                        <button type="submit" class="btn-cyber" style="padding: 12px 32px;"><span>🔍 GEO IP</span></button>
+                    </form>
+                    <div id="loader-ipgeo" class="htmx-indicator" style="margin-top: 14px; text-align: center; color: var(--cyan-glow); font-weight: 700; font-size: 0.9rem; letter-spacing: 1.5px;">⚡ CONSULTA EN TIEMPO REAL...</div>
+                </div>
+                <div id="ipgeo-results">
+                    <div class="hud-panel" style="padding: 30px; text-align: center; color: #64748b;">
+                        <div style="font-size: 2rem; margin-bottom: 8px;">📡</div><div style="font-size: 0.9rem; letter-spacing: 1px;">INGRESE IP PARA OBTENER RESULTADOS TÁCTICOS.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Web Module -->
+            <div x-show="osintSubTab === 'web'" x-cloak>
+                <div class="hud-panel" style="padding: 20px; background: rgba(2, 6, 14, 0.95); margin-bottom: 24px;">
+                    <form hx-get="{% url 'query_web_partial' %}" hx-target="#web-results" hx-indicator="#loader-web" style="display: flex; gap: 12px; align-items: center;">
+                        <div style="flex: 1;"><input type="text" name="url" placeholder="Ingrese URL completa — Ej: https://www.ejemplo.cl" class="input-cyber" required></div>
+                        <button type="submit" class="btn-cyber" style="padding: 12px 32px;"><span>🔍 ANALIZAR WEB</span></button>
+                    </form>
+                    <div id="loader-web" class="htmx-indicator" style="margin-top: 14px; text-align: center; color: var(--cyan-glow); font-weight: 700; font-size: 0.9rem; letter-spacing: 1.5px;">⚡ CONSULTA EN TIEMPO REAL...</div>
+                </div>
+                <div id="web-results">
+                    <div class="hud-panel" style="padding: 30px; text-align: center; color: #64748b;">
+                        <div style="font-size: 2rem; margin-bottom: 8px;">📡</div><div style="font-size: 0.9rem; letter-spacing: 1px;">INGRESE URL PARA OBTENER RESULTADOS TÁCTICOS.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Puertos Module -->
+            <div x-show="osintSubTab === 'puertos'" x-cloak>
+                <div class="hud-panel" style="padding: 20px; background: rgba(2, 6, 14, 0.95); margin-bottom: 24px;">
+                    <form hx-get="{% url 'query_puertos_partial' %}" hx-target="#puertos-results" hx-indicator="#loader-puertos" style="display: flex; gap: 12px; align-items: center;">
+                        <div style="flex: 1;"><input type="text" name="target" placeholder="Ingrese IP o Dominio para escaneo NMAP (Puertos Críticos)" class="input-cyber" required></div>
+                        <button type="submit" class="btn-cyber" style="padding: 12px 32px;"><span>🔍 ESCANEAR PUERTOS</span></button>
+                    </form>
+                    <div id="loader-puertos" class="htmx-indicator" style="margin-top: 14px; text-align: center; color: var(--cyan-glow); font-weight: 700; font-size: 0.9rem; letter-spacing: 1.5px;">⚡ CONSULTA EN TIEMPO REAL...</div>
+                </div>
+                <div id="puertos-results">
+                    <div class="hud-panel" style="padding: 30px; text-align: center; color: #64748b;">
+                        <div style="font-size: 2rem; margin-bottom: 8px;">📡</div><div style="font-size: 0.9rem; letter-spacing: 1px;">INGRESE TARGET PARA OBTENER RESULTADOS TÁCTICOS.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Subdominios Module -->
+            <div x-show="osintSubTab === 'subdominios'" x-cloak>
+                <div class="hud-panel" style="padding: 20px; background: rgba(2, 6, 14, 0.95); margin-bottom: 24px;">
+                    <form hx-get="{% url 'query_subdominios_partial' %}" hx-target="#subdominios-results" hx-indicator="#loader-sub" style="display: flex; gap: 12px; align-items: center;">
+                        <div style="flex: 1;"><input type="text" name="domain" placeholder="Ingrese Dominio Web — Ej: ejemplo.cl" class="input-cyber" required></div>
+                        <button type="submit" class="btn-cyber" style="padding: 12px 32px;"><span>🔍 BUSCAR SUBDOMINIOS</span></button>
+                    </form>
+                    <div id="loader-sub" class="htmx-indicator" style="margin-top: 14px; text-align: center; color: var(--cyan-glow); font-weight: 700; font-size: 0.9rem; letter-spacing: 1.5px;">⚡ CONSULTA EN TIEMPO REAL...</div>
+                </div>
+                <div id="subdominios-results">
+                    <div class="hud-panel" style="padding: 30px; text-align: center; color: #64748b;">
+                        <div style="font-size: 2rem; margin-bottom: 8px;">📡</div><div style="font-size: 0.9rem; letter-spacing: 1px;">INGRESE DOMINIO PARA OBTENER RESULTADOS TÁCTICOS.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Email Module -->
+            <div x-show="osintSubTab === 'email'" x-cloak>
+                <div class="hud-panel" style="padding: 20px; background: rgba(2, 6, 14, 0.95); margin-bottom: 24px;">
+                    <form hx-get="{% url 'query_email_partial' %}" hx-target="#email-results" hx-indicator="#loader-email" style="display: flex; gap: 12px; align-items: center;">
+                        <div style="flex: 1;"><input type="email" name="email" placeholder="Ingrese Email para verificar (Sintaxis y MX)" class="input-cyber" required></div>
+                        <button type="submit" class="btn-cyber" style="padding: 12px 32px;"><span>🔍 VERIFICAR EMAIL</span></button>
+                    </form>
+                    <div id="loader-email" class="htmx-indicator" style="margin-top: 14px; text-align: center; color: var(--cyan-glow); font-weight: 700; font-size: 0.9rem; letter-spacing: 1.5px;">⚡ CONSULTA EN TIEMPO REAL...</div>
+                </div>
+                <div id="email-results">
+                    <div class="hud-panel" style="padding: 30px; text-align: center; color: #64748b;">
+                        <div style="font-size: 2rem; margin-bottom: 8px;">📡</div><div style="font-size: 0.9rem; letter-spacing: 1px;">INGRESE EMAIL PARA OBTENER RESULTADOS TÁCTICOS.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Traceroute Module -->
+            <div x-show="osintSubTab === 'traceroute'" x-cloak>
+                <div class="hud-panel" style="padding: 20px; background: rgba(2, 6, 14, 0.95); margin-bottom: 24px;">
+                    <form hx-get="{% url 'query_traceroute_partial' %}" hx-target="#traceroute-results" hx-indicator="#loader-trace" style="display: flex; gap: 12px; align-items: center;">
+                        <div style="flex: 1;"><input type="text" name="target" placeholder="Ingrese IP o Dominio para trazar ruta" class="input-cyber" required></div>
+                        <button type="submit" class="btn-cyber" style="padding: 12px 32px;"><span>🔍 EJECUTAR TRACERT</span></button>
+                    </form>
+                    <div id="loader-trace" class="htmx-indicator" style="margin-top: 14px; text-align: center; color: var(--cyan-glow); font-weight: 700; font-size: 0.9rem; letter-spacing: 1.5px;">⚡ CONSULTA EN TIEMPO REAL...</div>
+                </div>
+                <div id="traceroute-results">
+                    <div class="hud-panel" style="padding: 30px; text-align: center; color: #64748b;">
+                        <div style="font-size: 2rem; margin-bottom: 8px;">📡</div><div style="font-size: 0.9rem; letter-spacing: 1px;">INGRESE TARGET PARA OBTENER RESULTADOS TÁCTICOS.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+</div>
