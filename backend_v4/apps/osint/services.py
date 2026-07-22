@@ -14,8 +14,6 @@ import contextlib
 import dns.resolver
 from typing import Dict, Any, Optional
 
-# Versión mínima de Chrome requerida. El sistema reporta versión 150 en la máquina del usuario.
-_CHROME_VERSION = 150
 
 def format_rut_with_dots(rut_raw: str) -> str:
     """Formatea un RUT a su representación canónica con puntos y guion (e.g. 16.691.169-9)."""
@@ -39,6 +37,35 @@ def detect_chrome_executable() -> str:
             return path
     return candidates[0]
 
+def get_chrome_version_main() -> Optional[int]:
+    """Obtiene la versión principal (Major Version) del ejecutable de Chrome en el host."""
+    chrome_path = detect_chrome_executable()
+    if not os.path.exists(chrome_path):
+        return None
+    try:
+        import subprocess
+        import re
+        if os.name == 'nt':
+            # Intentar wmic primero (rápido y compatible con Win7/10/11)
+            escaped_path = chrome_path.replace("\\", "\\\\")
+            cmd = f'wmic datafile where name="{escaped_path}" get version'
+            out = subprocess.check_output(cmd, shell=True, text=True, stderr=subprocess.DEVNULL)
+            version_str = "".join(out.splitlines()).replace("Version", "").strip()
+            
+            # Fallback a powershell si wmic falla
+            if not version_str:
+                ps_cmd = f'(Get-Item "{chrome_path}").VersionInfo.ProductVersion'
+                version_str = subprocess.check_output(["powershell", "-Command", ps_cmd], text=True, stderr=subprocess.DEVNULL).strip()
+        else:
+            version_str = subprocess.check_output([chrome_path, "--version"], text=True, stderr=subprocess.DEVNULL).strip()
+        
+        match = re.search(r'(\d+)\.', version_str)
+        if match:
+            return int(match.group(1))
+    except Exception:
+        pass
+    return None
+
 @contextlib.contextmanager
 def chromedriver_context():
     """Context Manager anti-oclusión con supresión de consola y purga automática."""
@@ -46,6 +73,7 @@ def chromedriver_context():
 
     temp_dir = tempfile.mkdtemp(prefix="argos_uc_v4_")
     chrome_exe = detect_chrome_executable()
+    detected_version = get_chrome_version_main()
 
     options = uc.ChromeOptions()
     options.binary_location = chrome_exe
@@ -58,9 +86,11 @@ def chromedriver_context():
 
     driver = None
     try:
+        # Si no se pudo detectar la versión, undetected-chromedriver intentará autodetectarla internamente
+        version_to_use = detected_version if detected_version else None
         driver = uc.Chrome(
             options=options,
-            version_main=_CHROME_VERSION,
+            version_main=version_to_use,
             user_data_dir=temp_dir,
             suppress_welcome=True,
             use_subprocess=True
