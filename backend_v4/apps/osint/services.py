@@ -54,6 +54,7 @@ def chromedriver_context():
     options.add_argument('--disable-dev-shm-usage')
     options.add_argument('--window-size=1920,1080')
     options.add_argument('--disable-blink-features=AutomationControlled')
+    options.add_argument('--incognito')  # Sesión de navegación de incógnito estricto
 
     chrome_bin = detect_chrome_executable()
     if chrome_bin:
