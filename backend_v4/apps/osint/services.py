@@ -25,8 +25,8 @@ def format_rut_with_dots(rut_raw: str) -> str:
     formatted_body = "{:,}".format(int(body)).replace(",", ".")
     return f"{formatted_body}-{dv}"
 
-def detect_chrome_executable() -> str:
-    """Busca dinámicamente la ubicación física de Google Chrome en el sistema operativo Host."""
+def detect_chrome_executable() -> Optional[str]:
+    """Busca la ubicación de Chrome en Windows por si es requerida por Selenium."""
     candidates = [
         r"C:\Program Files\Google\Chrome\Application\chrome.exe",
         r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
@@ -35,122 +35,43 @@ def detect_chrome_executable() -> str:
     for path in candidates:
         if path and os.path.exists(path):
             return path
-    return candidates[0]
-
-def get_chrome_version_main() -> Optional[int]:
-    """Obtiene la versión principal (Major Version) del ejecutable de Chrome en el host."""
-    import re
-    
-    # 1. Estrategia prioritaria en Windows: Consulta nativa del Registro de Windows (winreg)
-    if os.name == 'nt':
-        try:
-            import winreg
-            # Intentar primero en HKEY_CURRENT_USER
-            try:
-                key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Google\Chrome\BLBeacon")
-                version_str, _ = winreg.QueryValueEx(key, "version")
-                winreg.CloseKey(key)
-                match = re.search(r'(\d+)\.', version_str)
-                if match:
-                    return int(match.group(1))
-            except Exception:
-                pass
-            
-            # Intentar luego en HKEY_LOCAL_MACHINE
-            try:
-                key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Google Chrome")
-                version_str, _ = winreg.QueryValueEx(key, "version")
-                winreg.CloseKey(key)
-                match = re.search(r'(\d+)\.', version_str)
-                if match:
-                    return int(match.group(1))
-            except Exception:
-                pass
-        except Exception:
-            pass
-
-    # 2. Estrategias de Fallback (vía subprocesos)
-    chrome_path = detect_chrome_executable()
-    if not os.path.exists(chrome_path):
-        return None
-
-    # Fallback A: PowerShell (Get-Item VersionInfo)
-    if os.name == 'nt':
-        try:
-            import subprocess
-            ps_cmd = f'(Get-Item "{chrome_path}").VersionInfo.ProductVersion'
-            version_str = subprocess.check_output(
-                ["powershell", "-Command", ps_cmd], 
-                text=True, stderr=subprocess.DEVNULL, timeout=5
-            ).strip()
-            match = re.search(r'(\d+)\.', version_str)
-            if match:
-                return int(match.group(1))
-        except Exception:
-            pass
-
-        # Fallback B: wmic (si está habilitado en Windows antiguos o enterprise)
-        try:
-            import subprocess
-            escaped_path = chrome_path.replace("\\", "\\\\")
-            cmd = f'wmic datafile where name="{escaped_path}" get version'
-            out = subprocess.check_output(cmd, shell=True, text=True, stderr=subprocess.DEVNULL, timeout=5)
-            version_str = "".join(out.splitlines()).replace("Version", "").strip()
-            match = re.search(r'(\d+)\.', version_str)
-            if match:
-                return int(match.group(1))
-        except Exception:
-            pass
-    else:
-        # Fallback para Linux/macOS
-        try:
-            import subprocess
-            version_str = subprocess.check_output([chrome_path, "--version"], text=True, stderr=subprocess.DEVNULL, timeout=5).strip()
-            match = re.search(r'(\d+)\.', version_str)
-            if match:
-                return int(match.group(1))
-        except Exception:
-            pass
-
     return None
 
 @contextlib.contextmanager
 def chromedriver_context():
-    """Context Manager anti-oclusión con supresión de consola y purga automática."""
-    import undetected_chromedriver as uc
+    """
+    Context Manager universal que levanta Selenium nativo con evasión Stealth de Cloudflare.
+    No requiere undetected-chromedriver ni cálculos de versionamiento de Chrome.
+    """
+    from selenium import webdriver
+    from selenium.webdriver.chrome.options import Options
+    from selenium_stealth import stealth
 
-    temp_dir = tempfile.mkdtemp(prefix="argos_uc_v4_")
-    chrome_exe = detect_chrome_executable()
-    detected_version = get_chrome_version_main()
+    options = Options()
+    options.add_argument('--headless=new')  # Modo headless indetectable moderno
+    options.add_argument('--disable-gpu')
+    options.add_argument('--no-sandbox')
+    options.add_argument('--disable-dev-shm-usage')
+    options.add_argument('--window-size=1920,1080')
+    options.add_argument('--disable-blink-features=AutomationControlled')
 
-    options = uc.ChromeOptions()
-    options.binary_location = chrome_exe
-    options.add_argument("--window-position=-32000,-32000")
-    options.add_argument("--disable-features=CalculateNativeWinOcclusion,WinUseNativeTitlebar,CalculateNativeWinOcclusion")
-    options.add_argument("--disable-backgrounding-occluded-windows")
-    options.add_argument("--disable-renderer-backgrounding")
-    options.add_argument("--no-first-run")
-    options.add_argument("--no-default-browser-check")
+    chrome_bin = detect_chrome_executable()
+    if chrome_bin:
+        options.binary_location = chrome_bin
 
     driver = None
     try:
-        # Si no se pudo detectar la versión, undetected-chromedriver intentará autodetectarla internamente
-        version_to_use = detected_version if detected_version else None
-        driver = uc.Chrome(
-            options=options,
-            version_main=version_to_use,
-            user_data_dir=temp_dir,
-            suppress_welcome=True,
-            use_subprocess=True
+        driver = webdriver.Chrome(options=options)
+        
+        stealth(
+            driver,
+            languages=['es-ES', 'es'],
+            vendor='Google Inc.',
+            platform='Win32',
+            webgl_vendor='Intel Inc.',
+            renderer='Intel Iris OpenGL Engine',
+            fix_hairline=True,
         )
-        if os.name == 'nt':
-            try:
-                import win32gui, win32con
-                hwnd = driver.service.process.pid if hasattr(driver.service, 'process') else None
-                if hwnd:
-                    win32gui.SetWindowPos(hwnd, win32con.HWND_BOTTOM, -32000, -32000, 0, 0, win32con.SWP_NOSIZE | win32con.SWP_NOACTIVATE)
-            except Exception:
-                pass
         yield driver
     finally:
         if driver:
@@ -158,7 +79,6 @@ def chromedriver_context():
                 driver.quit()
             except Exception:
                 pass
-        shutil.rmtree(temp_dir, ignore_errors=True)
 
 def scrape_rut(rut_input: str) -> Dict[str, Any]:
     """Scraper de RUT en nombrerutyfirma.com."""
