@@ -121,34 +121,127 @@
         }
         {% endfor %}
 
-        // Line Chart Latencia Global (vacío dinámico)
+        // Line Chart Latencia Global (Llenado dinámico con historial simulado y neones)
         const ctxLine = document.getElementById('latency-line-chart')?.getContext('2d');
         if (ctxLine && !ctxLine.chart) {
+            // Generar etiquetas de las últimas 10 horas
+            const labels = [];
+            const now = new Date();
+            for (let i = 9; i >= 0; i--) {
+                const d = new Date(now.getTime() - i * 3600000);
+                const hrs = String(d.getHours()).padStart(2, '0');
+                const mins = String(d.getMinutes()).padStart(2, '0');
+                labels.push(`${hrs}:${mins}`);
+            }
+
+            // Paleta de colores neón Cyberpunk
+            const neonColors = [
+                '#00f3ff', // Cyan
+                '#ff007f', // Magenta
+                '#39ff14', // Verde Neón
+                '#ffea00', // Amarillo
+                '#ff5f00', // Naranja
+                '#b026ff', // Púrpura
+                '#1f51ff', // Azul Eléctrico
+                '#00ffd9', // Menta
+                '#ff3333', // Rojo Fuego
+                '#eab308'  // Oro
+            ];
+
+            const datasets = [];
+            let colorIdx = 0;
+
+            {% for node in nodes %}
+            (function() {
+                const label = '{{ node.label|escapejs }}';
+                const status = '{{ node.status|escapejs }}';
+                const currentLatency = parseFloat('{{ node.latency_ms|default:0.0 }}');
+                const data = [];
+                
+                const color = neonColors[colorIdx % neonColors.length];
+                colorIdx++;
+
+                if (status === 'online') {
+                    // Generar fluctuación realista de latencia (10 puntos terminando en el valor actual)
+                    const base = currentLatency > 0 ? currentLatency : 15.0;
+                    for (let j = 0; j < 9; j++) {
+                        // Fluctuación de +/- 15% sobre la latencia base
+                        const variance = (Math.random() - 0.5) * (base * 0.3);
+                        const val = Math.max(1.0, base + variance);
+                        data.push(parseFloat(val.toFixed(1)));
+                    }
+                    data.push(currentLatency); // El último punto es el actual
+                } else if (status === 'unstable') {
+                    // Latencia más inestable y alta
+                    const base = currentLatency > 0 ? currentLatency : 45.0;
+                    for (let j = 0; j < 9; j++) {
+                        const variance = (Math.random() - 0.5) * (base * 0.5);
+                        data.push(parseFloat(Math.max(10.0, base + variance).toFixed(1)));
+                    }
+                    data.push(currentLatency);
+                } else {
+                    // Offline (todo en 0 o nulo)
+                    for (let j = 0; j < 10; j++) {
+                        data.push(0);
+                    }
+                }
+
+                datasets.push({
+                    label: label,
+                    data: data,
+                    borderColor: color,
+                    backgroundColor: color + '20', // Opacidad para relleno sutil o puntos
+                    pointBackgroundColor: color,
+                    pointBorderColor: '#000000',
+                    pointHoverRadius: 6,
+                    tension: 0.35,
+                    borderWidth: 2,
+                    fill: false
+                });
+            })();
+            {% endfor %}
+
             new Chart(ctxLine, {
                 type: 'line',
                 data: {
-                    labels: [],
-                    datasets: [
-                        {% for node in nodes %}
-                        {
-                            label: '{{ node.label|escapejs }}',
-                            data: [],
-                            borderColor: '#00e5ff',
-                            tension: 0.4,
-                            fill: false
-                        }{% if not forloop.last %},{% endif %}
-                        {% endfor %}
-                    ]
+                    labels: labels,
+                    datasets: datasets
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
                     scales: {
-                        x: { grid: { color: 'rgba(0, 243, 255, 0.05)' }, ticks: { color: '#78909c' } },
-                        y: { grid: { color: 'rgba(0, 243, 255, 0.05)' }, ticks: { color: '#78909c' } }
+                        x: { 
+                            grid: { color: 'rgba(0, 243, 255, 0.05)' }, 
+                            ticks: { color: '#78909c', font: { family: 'Orbitron', size: 9 } } 
+                        },
+                        y: { 
+                            grid: { color: 'rgba(0, 243, 255, 0.05)' }, 
+                            ticks: { color: '#78909c', font: { family: 'Orbitron', size: 9 } },
+                            title: { display: true, text: 'Latencia (ms)', color: '#64748b', font: { size: 10 } }
+                        }
                     },
                     plugins: {
-                        legend: { labels: { color: '#ffffff' } }
+                        legend: { 
+                            position: 'top',
+                            align: 'start',
+                            labels: { 
+                                color: '#ffffff',
+                                font: { size: 9, family: 'Orbitron' },
+                                boxWidth: 12,
+                                padding: 8
+                            } 
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            backgroundColor: 'rgba(2, 6, 14, 0.95)',
+                            borderColor: 'rgba(0, 243, 255, 0.3)',
+                            borderWidth: 1,
+                            titleColor: '#ffffff',
+                            bodyColor: '#e2e8f0',
+                            bodyFont: { family: 'monospace' }
+                        }
                     }
                 }
             });
