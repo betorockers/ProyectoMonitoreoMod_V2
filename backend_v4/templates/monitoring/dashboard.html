@@ -70,12 +70,12 @@
 
 <!-- Tab: Mapa Táctico -->
 <div x-show="currentTab === 'map'" style="width: 100%;" x-cloak>
-    <div hx-get="{% url 'tactical_map_partial' %}" hx-trigger="load"></div>
+    <div hx-get="{% url 'tactical_map_partial' %}" hx-trigger="load, updateHistory"></div>
 </div>
 
 <!-- Tab: Historial Eventos -->
 <div x-show="currentTab === 'history'" style="width: 100%; height: calc(100vh - 120px); overflow-y: auto; overflow-x: hidden; padding: 16px;" x-cloak>
-    <div hx-get="{% url 'event_history_partial' %}" hx-trigger="load"></div>
+    <div hx-get="{% url 'event_history_partial' %}" hx-trigger="load, updateHistory"></div>
 </div>
 
 <!-- Tab: Video Vigilancia -->

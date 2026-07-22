@@ -88,11 +88,13 @@ def add_node(request):
                 isp=isp,
                 asn=asn
             )
-            return render(request, 'monitoring/partials/node_grid.html', {
+            response = render(request, 'monitoring/partials/node_grid.html', {
                 'nodes': TargetNode.objects.all(),
                 'toast_message': f'✅ Nodo "{label}" agregado exitosamente.',
                 'toast_status': 'success'
             })
+            response['HX-Trigger'] = 'updateHistory'
+            return response
     return HttpResponse(status=400)
 
 def remove_node(request):
@@ -101,11 +103,13 @@ def remove_node(request):
         host = request.POST.get('host', '').strip()
         if host:
             TargetNode.objects.filter(host=host).delete()
-            return render(request, 'monitoring/partials/node_grid.html', {
+            response = render(request, 'monitoring/partials/node_grid.html', {
                 'nodes': TargetNode.objects.all(),
                 'toast_message': f'❌ Nodo "{host}" eliminado de la red.',
                 'toast_status': 'offline'
             })
+            response['HX-Trigger'] = 'updateHistory'
+            return response
     return HttpResponse(status=400)
 
 def tactical_map_partial(request):
@@ -257,18 +261,22 @@ def import_nodes_json(request):
                     )
                     imported_count += 1
                     
-            return render(request, 'monitoring/partials/node_grid.html', {
+            response = render(request, 'monitoring/partials/node_grid.html', {
                 'nodes': TargetNode.objects.all(),
                 'toast_message': f'✅ {imported_count} Nodos importados exitosamente.',
                 'toast_status': 'success'
             })
+            response['HX-Trigger'] = 'updateHistory'
+            return response
             
         except Exception as e:
-            return render(request, 'monitoring/partials/node_grid.html', {
+            response = render(request, 'monitoring/partials/node_grid.html', {
                 'nodes': TargetNode.objects.all(),
                 'toast_message': f'❌ Error al procesar JSON: {str(e)}',
                 'toast_status': 'offline'
             })
+            response['HX-Trigger'] = 'updateHistory'
+            return response
             
     return HttpResponse(status=400)
 
