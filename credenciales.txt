@@ -1,11 +1,25 @@
 ===============================================================================
-ARGOS GUARD ENTERPRISE V4.0 - CREDENCIALES Y SERVICIOS
+ARGOS GUARD ENTERPRISE V4.0 - REGISTRO MAESTRO DE CREDENCIALES Y SERVICIOS
 ===============================================================================
 
-SUPABASE LICENSE SERVER:
-URL: https://zzvcyrlbywnnkoigdwzz.supabase.co
-SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp6dmN5cmxieXdubmtvaWdkd3p6Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MjIyNTc3NSwiZXhwIjoyMDk3ODAxNzc1fQ.z2vj0dtAtgU24MpoaFgUok2qozksPogtnlZknsfYDXE
+1. SUPABASE (SERVIDOR DE LICENCIAS Y ACTIVACIÓN):
+   - Project URL: https://zzvcyrlbywnnkoigdwzz.supabase.co
+   - Service Role Secret: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp6dmN5cmxieXdubmtvaWdkd3p6Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MjIyNTc3NSwiZXhwIjoyMDk3ODAxNzc1fQ.z2vj0dtAtgU24MpoaFgUok2qozksPogtnlZknsfYDXE
+   - Tabla Licencias: valid_licenses (Validación criptográfica SHA-256)
 
-DETERMINACIÓN DE SERIALES:
-Las licencias registradas se validan mediante SHA-256 en la tabla valid_licenses de Supabase.
+2. TELEGRAM BOT (ALERTAS Y NOTIFICACIONES DE TELEMETRÍA EN TIEMPO REAL):
+   - Bot Token: 8967512488:AAGIcJfbd7ui19ROj5psNb9rmqcKELTbjQY
+   - Chat ID: 8036765324
+   - Estado: Activo / Vinculado al Daemon
+
+3. GITHUB REPOSITORIO & RELEASES OTA (CI/CD DEPLOYMENT):
+   - Repositorio Oficial: https://github.com/betorockers/ProyectoMonitoreoMod_V2.git
+   - Usuario / Owner: betorockers (BetoRock Toledo - beto@argosguard.cl)
+   - Rama Principal: main
+   - Workflow OTA: .github/workflows/release_ota.yml (Trigger por tags v*.*.*)
+
+4. SERVICIOS OSINT & APIS DE PAGO (OPCIONALES EN CONFIGURACIÓN):
+   - AbuseIPDB: Configurable en Tab Configuración -> Integraciones
+   - Shodan API: Configurable en Tab Configuración -> Integraciones
+   - HaveIBeenPwned (HIBP): Configurable en Tab Configuración -> Integraciones
 ===============================================================================
