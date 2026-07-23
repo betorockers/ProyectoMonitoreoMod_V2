@@ -1,0 +1,11 @@
+===============================================================================
+ARGOS GUARD ENTERPRISE V4.0 - CREDENCIALES Y SERVICIOS
+===============================================================================
+
+SUPABASE LICENSE SERVER:
+URL: https://zzvcyrlbywnnkoigdwzz.supabase.co
+SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp6dmN5cmxieXdubmtvaWdkd3p6Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MjIyNTc3NSwiZXhwIjoyMDk3ODAxNzc1fQ.z2vj0dtAtgU24MpoaFgUok2qozksPogtnlZknsfYDXE
+
+DETERMINACIÓN DE SERIALES:
+Las licencias registradas se validan mediante SHA-256 en la tabla valid_licenses de Supabase.
+===============================================================================
