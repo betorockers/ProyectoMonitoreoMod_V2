@@ -1,9 +1,0 @@
-Package: argosguard
-Version: 3.6.4
-Section: utils
-Priority: optional
-Architecture: amd64
-Maintainer: Argos Guard Team <info@argosguard.com>
-Depends: xvfb, xauth, python3, google-chrome-stable | chromium
-Description: Argos Guard Enterprise Client
- Sistema de monitoreo y OSINT para Argos Guard Enterprise con frontend integrado en modo kiosco.

@@ -1,5 +1,0 @@
-#!/bin/bash
-# Lanzador oficial para Argos Guard Enterprise
-export CHROME_PATH="/usr/bin/google-chrome"
-export CHROMEDRIVER_PATH="/usr/bin/chromedriver"
-exec /opt/argosguard/ArgosGuard "$@"
