@@ -1,0 +1,77 @@
+===============================================================================
+                       ACUERDO DE LICENCIA DE USUARIO FINAL (EULA)
+                            ARGOS GUARD ENTERPRISE V4.0
+                    Derechos Reservados © 2026 Betograf.cl
+===============================================================================
+
+POR FAVOR, LEA DETENIDAMENTE ESTE ACUERDO DE LICENCIA DE USUARIO FINAL ("EULA")
+ANTES DE INSTALAR, EJECUTAR O UTILIZAR EL SOFTWARE ARGOS GUARD ENTERPRISE V4.0.
+
+AL INSTALAR, COPIAR O UTILIZAR DE CUALQUIER OTRA MANERA EL SOFTWARE, USTED ("EL
+USUARIO" O "LA ENTIDAD ADQUIRENTE") ACEPTA DE FORMA INCONDICIONAL QUEDAR OBLIGADO
+POR LOS TÉRMINOS Y CONDICIONES DE ESTE CONTRATO CON BETOGRAF ("EL AUTOR / PROVEEDOR").
+
+SI NO ESTÁ DE ACUERDO CON LOS TÉRMINOS DE ESTE EULA, NO INSTALE NI UTILICE EL SOFTWARE.
+
+-------------------------------------------------------------------------------
+1. CONCESIÓN DE LICENCIA Y ÁMBITO DE USO
+-------------------------------------------------------------------------------
+1.1 Licencia Empresarial: El Autor otorga al Usuario una licencia comercial, limitada,
+    no exclusiva, no transferible y revocable para instalar y utilizar Argos Guard
+    Enterprise v4.0 en terminales autorizados mediante firma criptográfica HWID (Hardware ID).
+1.2 Primer Uso e Inicialización: El Software requiere activación obligatoria durante el
+    primer inicio mediante un número de serie oficial validado contra los servidores
+    de licencias de Betograf.
+1.3 Entorno de Ejecución: Diseñado para operar en plataformas Windows 10/11 x64 en modo
+    autónomo o Kiosko, de forma 100% autocontenida y sin requerir la presencia de un
+    entorno de desarrollo previo.
+
+-------------------------------------------------------------------------------
+2. PROPIEDAD INTELECTUAL Y RESTRICCIONES
+-------------------------------------------------------------------------------
+2.1 Titularidad: Todos los títulos, derechos de autor, marcas comerciales, código fuente,
+    módulos C++ compilados, motores de inteligencia OSINT y diseños visuales pertenecen
+    exclusivamente a Betograf.
+2.2 Prohibiciones Estrictas:
+    a) Modificar, descompilar, realizar ingeniería inversa, desensamblar o intentar extraer
+       el código fuente de las librerías C++ y módulos de Nuitka.
+    b) Reorganizar, alquilar, sublicenciar o vender copias del Software a terceros.
+    c) Alterar o remover identificadores de marca, banners tácticos de la consola o avisos
+       de propiedad de Betograf.
+    d) Burlar las validaciones criptográficas de autenticidad o las firmas HWID.
+
+-------------------------------------------------------------------------------
+3. SERVICIOS OSINT Y USO RESPONSABLE DE TELEMETRÍA
+-------------------------------------------------------------------------------
+3.1 Fuentes Públicas y Terceros: El módulo OSINT realiza consultas a APIs de fuentes
+    abiertas y registros públicos. El Autor no se responsabiliza por indisponibilidades
+    temporales o cambios de políticas en servicios de terceros (AbuseIPDB, Shodan, HIBP,
+    NIC Chile, etc.).
+3.2 Cumplimiento Legal: El Usuario garantiza que utilizará las herramientas de análisis
+    de red y scraping OSINT en cumplimiento estricto con las leyes locales e internacionales
+    de ciberseguridad y protección de datos.
+
+-------------------------------------------------------------------------------
+4. MANTENIMIENTO, ACTUALIZACIONES Y OTA (OVER-THE-AIR)
+-------------------------------------------------------------------------------
+4.1 Actualizaciones Automáticas: El Software incluye capacidad de verificación de
+    actualizaciones por aire (OTA) para recibir parches de seguridad, optimizaciones
+    de rendimiento y mejoras de versión de forma desatendida.
+4.2 Desinstalación Zero-Trace: El sistema desinstalador incluido remueve el 100% de los
+    archivos, registros de Windows, logs temporales y cachés creados por la aplicación,
+    garantizando un estado limpio de la máquina host.
+
+-------------------------------------------------------------------------------
+5. GARANTÍA LIMITADA Y SOPORTE TÉCNICO
+-------------------------------------------------------------------------------
+5.1 Garantía: Betograf garantiza que el Software funcionará sustancialmente conforme a
+    la documentación técnica entregada durante un período de 90 días a partir de la instalación.
+5.2 Soporte Técnico Oficial:
+    - Sitio Web Oficial: https://betograf.cl
+    - Correo de Soporte: soporte@betograf.cl
+    - Mesa de Ayuda SLA: Incluida en el panel de configuración de la consola.
+
+===============================================================================
+                    ¡Gracias por elegir Argos Guard Enterprise v4.0!
+===============================================================================
+

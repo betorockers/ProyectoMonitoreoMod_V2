@@ -9,9 +9,15 @@ from apps.core.path_resolver import PathResolver
 resolver = PathResolver()
 BASE_DIR = resolver.base_dir
 
-SECRET_KEY = os.environ.get("ARGOS_SECRET_KEY", "django-insecure-argos-guard-enterprise-v4-master-key-2026")
+SECRET_KEY = os.environ.get(
+    "ARGOS_SECRET_KEY",
+    # Solo para desarrollo local. En producción siempre inyectar ARGOS_SECRET_KEY.
+    "django-insecure-argos-v4-dev-only-replace-in-production-2026"
+)
 
-DEBUG = True
+# En producción (ejecutable compilado) DEBUG siempre es False.
+# Para activar DEBUG en desarrollo: $env:ARGOS_DEBUG="1"
+DEBUG = os.environ.get("ARGOS_DEBUG", "0") == "1"
 
 ALLOWED_HOSTS = ["127.0.0.1", "localhost", "*"]
 
@@ -40,6 +46,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'apps.security.middleware.FirstRunMiddleware',
+    'apps.security.middleware.RoleAccessMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'

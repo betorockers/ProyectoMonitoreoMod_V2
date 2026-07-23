@@ -149,10 +149,29 @@ def main():
             QApplication.instance().quit()
             
     browser.urlChanged.connect(handle_url_change)
+
+    # ─── Interceptor de Descargas ─────────────────────────────────────────────
+    # Redirige automáticamente toda descarga (JSON, PDF, SQLite) a la carpeta
+    # "Descargas" del usuario host de Windows, sin intervención del usuario.
+    from PyQt6.QtWebEngineCore import QWebEngineDownloadRequest
+
+    downloads_dir = str(Path.home() / "Downloads")
+    os.makedirs(downloads_dir, exist_ok=True)
+
+    def on_download_requested(download: QWebEngineDownloadRequest):
+        download.setDownloadDirectory(downloads_dir)
+        # Conservar el filename sugerido por el servidor (Content-Disposition)
+        download.accept()
+        log_msg(f"Descarga iniciada: {download.suggestedFileName()} → {downloads_dir}")
+
+    profile.downloadRequested.connect(on_download_requested)
+    # ─────────────────────────────────────────────────────────────────────────
+
     browser.setUrl(QUrl(url))
 
     window.setCentralWidget(browser)
     window.showFullScreen()
+
 
     log_msg("3. Lanzando Bucle Kiosko GUI Full-Screen")
     qt_app.exec()

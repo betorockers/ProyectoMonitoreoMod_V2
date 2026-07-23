@@ -1,5 +1,5 @@
 <!-- Tab: Configuración — Full 5-panel layout matching images 220322-220356 -->
-<div class="config-layout" x-data="{ configTab: 'users' }" style="position: relative;">
+<div class="config-layout" x-data="{ configTab: 'users' }" style="position: relative;" hx-get="{% url 'user_management_partial' %}" hx-trigger="refreshUserTable from:body" hx-target="this" hx-swap="outerHTML">
 
     <!-- Toast Container -->
     <div id="toast-container"></div>
@@ -13,6 +13,7 @@
         <button @click="configTab = 'users'" :class="{ 'active': configTab === 'users' }" class="config-nav-btn">
             👤 Gestión de Usuarios
         </button>
+        {% if request.user.profile.role == 'super_admin' %}
         <button @click="configTab = 'notifications'" :class="{ 'active': configTab === 'notifications' }" class="config-nav-btn">
             🔔 Notificaciones
         </button>
@@ -25,6 +26,20 @@
         <button @click="configTab = 'params'" :class="{ 'active': configTab === 'params' }" class="config-nav-btn">
             ⚙ Parámetros del Sistema
         </button>
+        {% else %}
+        <button class="config-nav-btn" style="opacity: 0.3; cursor: not-allowed; pointer-events: none;" title="Subpanel deshabilitado para rol ADMINISTRADOR" disabled>
+            🔔 Notificaciones (PRO)
+        </button>
+        <button class="config-nav-btn" style="opacity: 0.3; cursor: not-allowed; pointer-events: none;" title="Subpanel deshabilitado para rol ADMINISTRADOR" disabled>
+            🔗 Integraciones (PRO)
+        </button>
+        <button class="config-nav-btn" style="opacity: 0.3; cursor: not-allowed; pointer-events: none;" title="Subpanel deshabilitado para rol ADMINISTRADOR" disabled>
+            🛡 SLA & Equipo (PRO)
+        </button>
+        <button class="config-nav-btn" style="opacity: 0.3; cursor: not-allowed; pointer-events: none;" title="Subpanel deshabilitado para rol ADMINISTRADOR" disabled>
+            ⚙ Parámetros (PRO)
+        </button>
+        {% endif %}
     </aside>
 
     <!-- Content Area Right Side -->
@@ -60,8 +75,8 @@
                             <label class="argos-label">Rol</label>
                             <select name="role" class="argos-input">
                                 <option value="operator">Operador</option>
-                                <option value="admin">Administrador</option>
-                                <option value="super_admin">Super Admin</option>
+                                <option value="admin" {% if request.user.profile.role != 'super_admin' %}disabled style="color:#455a64;"{% endif %}>Administrador {% if request.user.profile.role != 'super_admin' %}(PRO){% endif %}</option>
+                                <option value="super_admin" {% if request.user.profile.role != 'super_admin' %}disabled style="color:#455a64;"{% endif %}>Super Admin {% if request.user.profile.role != 'super_admin' %}(PRO){% endif %}</option>
                             </select>
                         </div>
                     </div>
@@ -86,10 +101,12 @@
                                 <th>Nombre Real</th>
                                 <th>Usuario</th>
                                 <th>Rol</th>
+                                <th style="text-align: center; width: 100px;">Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for u in users %}
+                            {% if request.user.profile.role == 'super_admin' or u.profile.role == 'operator' and u.profile.created_by == request.user or u == request.user %}
                             <tr>
                                 <td>{{ u.first_name }}</td>
                                 <td><code style="color: #4dd0e1; background: #041018; padding: 2px 6px; border-radius: 3px;">{{ u.username }}</code></td>
@@ -102,16 +119,33 @@
                                         <span style="background: #37474f; color: #fff; font-weight: 700; padding: 2px 10px; border-radius: 3px; font-size: 0.78rem;">Operador</span>
                                     {% endif %}
                                 </td>
+                                <td style="text-align: center;">
+                                    {% if u != request.user %}
+                                        {% if request.user.profile.role == 'super_admin' or request.user.profile.role == 'admin' and u.profile.role == 'operator' and u.profile.created_by == request.user %}
+                                            <button hx-post="{% url 'config_delete_user' u.id %}" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}' hx-target="#toast-container" hx-swap="beforeend" hx-confirm="¿Está seguro de eliminar al usuario {{ u.username }}?" class="btn-action-danger" style="padding: 2px 8px; font-size: 0.8rem; width: auto; border-color: var(--red-alert); color: var(--red-alert); background: transparent;">
+                                                🗑 Eliminar
+                                            </button>
+                                        {% else %}
+                                            <button class="btn-action-danger" style="padding: 2px 8px; font-size: 0.8rem; width: auto; border-color: #37474f; color: #455a64; background: transparent; opacity: 0.35; cursor: not-allowed;" title="No tienes permisos para eliminar este usuario" disabled>
+                                                🗑 Eliminar
+                                            </button>
+                                        {% endif %}
+                                    {% else %}
+                                        <button class="btn-action-outline" style="padding: 2px 8px; font-size: 0.8rem; width: auto; border-color: #37474f; color: #78909c; background: transparent; opacity: 0.5; cursor: not-allowed;" title="No puedes eliminar tu propio usuario activo" disabled>
+                                            👤 Tú
+                                        </button>
+                                    {% endif %}
+                                </td>
                             </tr>
+                            {% endif %}
                             {% empty %}
-                            <tr><td colspan="3" style="text-align: center;">No hay usuarios.</td></tr>
+                            <tr><td colspan="4" style="text-align: center;">No hay usuarios visibles.</td></tr>
                             {% endfor %}
                         </tbody>
                     </table>
                 </div>
             </div>
         </div>
-
         <!-- ============================================ -->
         <!-- Sub-tab: Notificaciones (Image 220328)       -->
         <!-- ============================================ -->
@@ -364,5 +398,15 @@
         </div>
 
     </div>
+
+    {% if request.user.profile.role == 'super_admin' %}
+    <!-- Botón Flotante Esquina Inferior Derecha: Acceso Nativo Panel Admin Django -->
+    <a href="/admin/" target="_blank" title="Panel de Administración Nativo Django (Super Admin)"
+       style="position: fixed; bottom: 24px; right: 24px; width: 44px; height: 44px; border-radius: 50%; background: #041018; border: 1px solid var(--cyan-primary); color: var(--cyan-glow); display: flex; align-items: center; justify-content: center; font-size: 1.4rem; text-decoration: none; box-shadow: 0 0 15px rgba(0, 243, 255, 0.3); z-index: 999; transition: all 0.2s ease;"
+       onmouseover="this.style.transform='scale(1.1)'; this.style.boxShadow='0 0 25px rgba(0, 243, 255, 0.6)';"
+       onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 0 15px rgba(0, 243, 255, 0.3)';">
+        ⚙
+    </a>
+    {% endif %}
 
 </div>

@@ -23,7 +23,13 @@ def query_rut_partial(request):
         result = scrape_rut(rut)
         if isinstance(result, dict) and "error" in result: return render(request, 'osint/partials/result_card.html', {'error': result["error"]})
         OsintQueryLog.objects.create(module_type="RUT", query_term=rut, result_json=str(result))
-        return render(request, 'osint/partials/result_card.html', {'result': result, 'title': f'RUT: {rut}'})
+        
+        # Visualmente mostrar únicamente Nombre y RUT
+        filtered_result = {
+            "Nombre": result.get("Nombre", ""),
+            "RUT": result.get("RUT", "")
+        }
+        return render(request, 'osint/partials/result_card.html', {'result': filtered_result, 'title': f'RUT: {rut}'})
     except Exception as e:
         return render(request, 'osint/partials/result_card.html', {'error': f'Error en módulo OSINT RUT: {str(e)}'})
 

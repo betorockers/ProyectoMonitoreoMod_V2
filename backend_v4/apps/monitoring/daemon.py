@@ -131,9 +131,14 @@ class TelemetryDaemon(threading.Thread):
 
 # Instancia global del demonio
 _telemetry_daemon = None
+_daemon_started = False  # Lock global: garantiza que el daemon arranca exactamente una vez.
 
 def start_daemon():
-    global _telemetry_daemon
+    global _telemetry_daemon, _daemon_started
+    # Lock de módulo: si ya arrancó en este proceso, no crear otra instancia.
+    if _daemon_started:
+        return
     if _telemetry_daemon is None or not _telemetry_daemon.is_alive():
         _telemetry_daemon = TelemetryDaemon(interval_seconds=2.0)
         _telemetry_daemon.start()
+        _daemon_started = True

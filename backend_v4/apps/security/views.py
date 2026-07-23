@@ -112,10 +112,19 @@ def user_management_partial(request):
 @require_POST
 def create_user(request):
     """Crea un nuevo usuario con perfil RBAC."""
+    # Validación de Rol del Creador
+    creator_role = request.user.profile.role
+    
     real_name = request.POST.get('real_name', '').strip()
     username = request.POST.get('username', '').strip()
     password = request.POST.get('password', '').strip()
     role = request.POST.get('role', 'operator')
+
+    if creator_role == 'admin' and role != 'operator':
+        return render(request, 'security/partials/_config_toast.html', {
+            'message': '❌ Error: Los administradores solo pueden crear usuarios operadores.',
+            'status': 'error'
+        })
 
     if not username or not password:
         return render(request, 'security/partials/_config_toast.html', {
@@ -132,17 +141,94 @@ def create_user(request):
     user = User.objects.create_user(username=username, password=password)
     user.first_name = real_name
     user.save()
-    UserProfile.objects.update_or_create(user=user, defaults={'role': role})
+    
+    UserProfile.objects.update_or_create(
+        user=user, 
+        defaults={
+            'role': role,
+            'created_by': request.user
+        }
+    )
 
-    return render(request, 'security/partials/_config_toast.html', {
+    response = render(request, 'security/partials/_config_toast.html', {
         'message': f'✅ Usuario "{username}" creado exitosamente con rol {role}.',
         'status': 'success'
     })
+    # Forzar refresco de la tabla de usuarios via HTMX
+    response['HX-Trigger'] = 'refreshUserTable'
+    return response
+
+
+@require_POST
+def delete_user(request, user_id):
+    """Elimina un usuario de la base de datos validando los roles y propiedad de creación."""
+    try:
+        user_to_delete = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return render(request, 'security/partials/_config_toast.html', {
+            'message': '❌ Error: El usuario a eliminar no existe.',
+            'status': 'error'
+        })
+
+    # Intentar obtener el perfil del usuario de forma segura
+    try:
+        profile_to_delete = user_to_delete.profile
+        user_role = profile_to_delete.role
+        created_by = profile_to_delete.created_by
+    except Exception:
+        # Fallback si no tiene perfil creado aún
+        user_role = 'operator'
+        created_by = None
+
+    current_user = request.user
+    try:
+        current_role = current_user.profile.role
+    except Exception:
+        current_role = 'operator'
+
+    # Validaciones de seguridad de eliminación
+    if user_to_delete == current_user:
+        return render(request, 'security/partials/_config_toast.html', {
+            'message': '❌ Error: No puedes eliminar tu propia cuenta en sesión.',
+            'status': 'error'
+        })
+
+    has_permission = False
+    if current_role == 'super_admin':
+        # Super Admin tiene control total, borra cualquier cuenta (incluyendo administradores y otros super admins)
+        has_permission = True
+    elif current_role == 'admin':
+        # El administrador solo puede borrar Operadores creados por él
+        if user_role == 'operator' and created_by == current_user:
+            has_permission = True
+
+    if not has_permission:
+        return render(request, 'security/partials/_config_toast.html', {
+            'message': '❌ Permiso Denegado: No tienes autorización para eliminar este usuario.',
+            'status': 'error'
+        })
+
+    username = user_to_delete.username
+    user_to_delete.delete()
+
+    response = render(request, 'security/partials/_config_toast.html', {
+        'message': f'🗑 Usuario "{username}" eliminado exitosamente del sistema.',
+        'status': 'offline'
+    })
+    # Forzar refresco de la tabla de usuarios via HTMX
+    response['HX-Trigger'] = 'refreshUserTable'
+    return response
 
 
 @require_POST
 def save_telegram(request):
     """Guarda configuración de Telegram Bot."""
+    if request.user.profile.role != 'super_admin':
+        return render(request, 'security/partials/_config_toast.html', {
+            'message': '❌ Permiso Denegado: Solo el Super Administrador puede modificar la configuración de Telegram.',
+            'status': 'error'
+        })
+
     from apps.core.models import TelegramConfig
     config = TelegramConfig.get_config()
     config.bot_token = request.POST.get('bot_token', '').strip()
@@ -159,6 +245,12 @@ def save_telegram(request):
 @require_POST
 def save_api_key(request):
     """Guarda una clave de API OSINT."""
+    if request.user.profile.role != 'super_admin':
+        return render(request, 'security/partials/_config_toast.html', {
+            'message': '❌ Permiso Denegado: Solo el Super Administrador puede guardar claves de API OSINT.',
+            'status': 'error'
+        })
+
     from apps.core.models import ApiKeyConfig
     service = request.POST.get('service', '').strip()
     api_key = request.POST.get('api_key', '').strip()
@@ -184,6 +276,12 @@ def save_api_key(request):
 @require_POST
 def save_webhook(request):
     """Guarda un endpoint de Webhook."""
+    if request.user.profile.role != 'super_admin':
+        return render(request, 'security/partials/_config_toast.html', {
+            'message': '❌ Permiso Denegado: Solo el Super Administrador puede configurar Webhooks.',
+            'status': 'error'
+        })
+
     from apps.core.models import WebhookConfig
     service = request.POST.get('service', '').strip()
     endpoint_url = request.POST.get('endpoint_url', '').strip()
@@ -209,6 +307,12 @@ def save_webhook(request):
 @require_POST
 def save_sla(request):
     """Guarda configuración de SLA & Equipo."""
+    if request.user.profile.role != 'super_admin':
+        return render(request, 'security/partials/_config_toast.html', {
+            'message': '❌ Permiso Denegado: Solo el Super Administrador puede configurar SLA y Equipo.',
+            'status': 'error'
+        })
+
     from apps.core.models import SlaConfig
     config = SlaConfig.get_config()
     config.team_name = request.POST.get('team_name', '').strip()
@@ -224,6 +328,12 @@ def save_sla(request):
 @require_POST
 def save_system_params(request):
     """Guarda parámetros del sistema."""
+    if request.user.profile.role != 'super_admin':
+        return render(request, 'security/partials/_config_toast.html', {
+            'message': '❌ Permiso Denegado: Solo el Super Administrador puede modificar los parámetros del sistema.',
+            'status': 'error'
+        })
+
     from apps.core.models import SystemParams
     config = SystemParams.get_config()
     try:

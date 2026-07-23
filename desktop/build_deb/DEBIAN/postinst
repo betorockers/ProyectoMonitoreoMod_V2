@@ -1,0 +1,5 @@
+#!/bin/bash
+set -e
+chmod 755 /opt/argosguard/ArgosGuard
+chmod 755 /usr/local/bin/argosguard
+echo "Argos Guard instalado correctamente en /opt/argosguard y enlazado en /usr/local/bin/argosguard."

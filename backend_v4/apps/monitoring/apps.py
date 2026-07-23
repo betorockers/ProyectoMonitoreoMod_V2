@@ -12,8 +12,10 @@ class MonitoringConfig(AppConfig):
         # En producción (gunicorn/waitress): RUN_MAIN no existe, el daemon debe arrancar.
         # Nunca iniciar en contexto de comando de gestión (manage.py migrate, etc.).
         running_server = (
-            os.environ.get('RUN_MAIN') == 'true' or
-            not any(cmd in sys.argv for cmd in ['test', 'migrate', 'makemigrations', 'collectstatic', 'shell'])
+            'pytest' not in sys.modules and
+            'test' not in sys.argv and
+            (os.environ.get('RUN_MAIN') == 'true' or
+             not any(cmd in sys.argv for cmd in ['test', 'migrate', 'makemigrations', 'collectstatic', 'shell']))
         )
         if running_server:
             from apps.monitoring.daemon import start_daemon

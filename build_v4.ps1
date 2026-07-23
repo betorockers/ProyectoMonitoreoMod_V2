@@ -68,12 +68,22 @@ try {
         "--include-package-data=PyQt6",
 
         # Automation, OSINT & Cryptography
+        "--include-package=requests",
+        "--include-package=bs4",
         "--include-package=undetected_chromedriver",
         "--include-package=selenium",
         "--include-package=dns",
         "--include-package=cryptography",
         "--include-package=argon2",
         "--include-package=jwt",
+        "--include-package=urllib3",
+        "--include-package=certifi",
+        "--include-package=asgiref",
+        "--include-package=fpdf",
+        "--include-package=pandas",
+        "--include-package=matplotlib",
+        "--include-package=seaborn",
+        "--include-package-data=fpdf",
 
         # Plugins Nuitka
         "--enable-plugin=pyqt6",
@@ -92,7 +102,10 @@ try {
     # Inclusión post-compilación de DLLs gráficas críticas (Direct3D y Software OpenGL)
     $DistFolder = Join-Path $BuildOut "run_kiosk.dist"
     if (Test-Path $DistFolder) {
-        $PyQt6Bin = "C:\Users\BetoRock Toledo\AppData\Local\Programs\Python\Python313\Lib\site-packages\PyQt6\Qt6\bin"
+        $PyQt6Bin = (python -c "import PyQt6, os; print(os.path.join(os.path.dirname(PyQt6.__file__), 'Qt6', 'bin'))" 2>$null).Trim()
+        if (-not (Test-Path $PyQt6Bin)) {
+            $PyQt6Bin = "C:\Users\BetoRock Toledo\AppData\Local\Programs\Python\Python313\Lib\site-packages\PyQt6\Qt6\bin"
+        }
         $CriticalDlls = @("d3dcompiler_47.dll", "opengl32sw.dll", "msvcp140_1.dll", "msvcp140_2.dll")
         foreach ($dll in $CriticalDlls) {
             $src = Join-Path $PyQt6Bin $dll

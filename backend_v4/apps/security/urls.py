@@ -14,5 +14,6 @@ urlpatterns = [
     path('config/webhook/', views.save_webhook, name='config_save_webhook'),
     path('config/sla/', views.save_sla, name='config_save_sla'),
     path('config/params/', views.save_system_params, name='config_save_params'),
+    path('config/user/delete/<int:user_id>/', views.delete_user, name='config_delete_user'),
     path('shutdown/', views.shutdown_system, name='shutdown'),
 ]

@@ -16,28 +16,34 @@
             <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                 <button @click="osintSubTab = 'ppu'" :class="{ 'active': osintSubTab === 'ppu' }" class="btn-cyber-tab">🚗 PPU</button>
                 <button @click="osintSubTab = 'rut'" :class="{ 'active': osintSubTab === 'rut' }" class="btn-cyber-tab">🪪 RUT</button>
+                {% if request.user.profile.role != 'operator' %}
                 <button @click="osintSubTab = 'geografia'" :class="{ 'active': osintSubTab === 'geografia' }" class="btn-cyber-tab">📍 Geografía y Clima</button>
+                {% else %}
+                <button class="btn-cyber-tab" style="opacity: 0.35; cursor: not-allowed; pointer-events: none;" title="Módulo deshabilitado para rol OPERADOR" disabled>📍 Geografía y Clima (PRO)</button>
+                {% endif %}
             </div>
         </div>
 
         <!-- 2. INTELIGENCIA DE RED, AMENAZAS & AMBIENTE DIGITAL (12 MÓDULOS) -->
-        <div style="margin-bottom: 24px;">
-            <div style="font-size: 0.75rem; color: #64748b; letter-spacing: 1.5px; font-weight: 700; margin-bottom: 8px;">INTELIGENCIA DE RED, AMENAZAS & AMBIENTE DIGITAL (12 MÓDULOS)</div>
+        <div style="margin-bottom: 24px; {% if request.user.profile.role == 'operator' %}opacity: 0.35; pointer-events: none;{% endif %}">
+            <div style="font-size: 0.75rem; color: #64748b; letter-spacing: 1.5px; font-weight: 700; margin-bottom: 8px;">
+                INTELIGENCIA DE RED, AMENAZAS & AMBIENTE DIGITAL (12 MÓDULOS) {% if request.user.profile.role == 'operator' %}(RESTRINGIDO PRO){% endif %}
+            </div>
             <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;">
-                <button @click="osintSubTab = 'fugas'" :class="{ 'active': osintSubTab === 'fugas' }" class="btn-cyber-tab">🔑 Fugas de Datos</button>
-                <button @click="osintSubTab = 'reputacion'" :class="{ 'active': osintSubTab === 'reputacion' }" class="btn-cyber-tab">🛡️ Reputación IP</button>
-                <button @click="osintSubTab = 'infra'" :class="{ 'active': osintSubTab === 'infra' }" class="btn-cyber-tab">🏢 Infraestructura</button>
-                <button @click="osintSubTab = 'whois'" :class="{ 'active': osintSubTab === 'whois' }" class="btn-cyber-tab">📜 Registro WHOIS</button>
-                <button @click="osintSubTab = 'ipgeo'" :class="{ 'active': osintSubTab === 'ipgeo' }" class="btn-cyber-tab">📍 IP Geo</button>
-                <button @click="osintSubTab = 'dns'" :class="{ 'active': osintSubTab === 'dns' }" class="btn-cyber-tab">🌐 DNS</button>
-                <button @click="osintSubTab = 'web'" :class="{ 'active': osintSubTab === 'web' }" class="btn-cyber-tab">🔍 Analizador Web</button>
-                <button @click="osintSubTab = 'puertos'" :class="{ 'active': osintSubTab === 'puertos' }" class="btn-cyber-tab">🌐 Puertos</button>
-                <button @click="osintSubTab = 'subdominios'" :class="{ 'active': osintSubTab === 'subdominios' }" class="btn-cyber-tab">🌐 Subdominios</button>
+                <button @click="osintSubTab = 'fugas'" :class="{ 'active': osintSubTab === 'fugas' }" class="btn-cyber-tab" {% if request.user.profile.role == 'operator' %}disabled{% endif %}>🔑 Fugas de Datos</button>
+                <button @click="osintSubTab = 'reputacion'" :class="{ 'active': osintSubTab === 'reputacion' }" class="btn-cyber-tab" {% if request.user.profile.role == 'operator' %}disabled{% endif %}>🛡️ Reputación IP</button>
+                <button @click="osintSubTab = 'infra'" :class="{ 'active': osintSubTab === 'infra' }" class="btn-cyber-tab" {% if request.user.profile.role == 'operator' %}disabled{% endif %}>🏢 Infraestructura</button>
+                <button @click="osintSubTab = 'whois'" :class="{ 'active': osintSubTab === 'whois' }" class="btn-cyber-tab" {% if request.user.profile.role == 'operator' %}disabled{% endif %}>📜 Registro WHOIS</button>
+                <button @click="osintSubTab = 'ipgeo'" :class="{ 'active': osintSubTab === 'ipgeo' }" class="btn-cyber-tab" {% if request.user.profile.role == 'operator' %}disabled{% endif %}>📍 IP Geo</button>
+                <button @click="osintSubTab = 'dns'" :class="{ 'active': osintSubTab === 'dns' }" class="btn-cyber-tab" {% if request.user.profile.role == 'operator' %}disabled{% endif %}>🌐 DNS</button>
+                <button @click="osintSubTab = 'web'" :class="{ 'active': osintSubTab === 'web' }" class="btn-cyber-tab" {% if request.user.profile.role == 'operator' %}disabled{% endif %}>🔍 Analizador Web</button>
+                <button @click="osintSubTab = 'puertos'" :class="{ 'active': osintSubTab === 'puertos' }" class="btn-cyber-tab" {% if request.user.profile.role == 'operator' %}disabled{% endif %}>🌐 Puertos</button>
+                <button @click="osintSubTab = 'subdominios'" :class="{ 'active': osintSubTab === 'subdominios' }" class="btn-cyber-tab" {% if request.user.profile.role == 'operator' %}disabled{% endif %}>🌐 Subdominios</button>
             </div>
             <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                <button @click="osintSubTab = 'email'" :class="{ 'active': osintSubTab === 'email' }" class="btn-cyber-tab">✉️ Email</button>
-                <button @click="osintSubTab = 'traceroute'" :class="{ 'active': osintSubTab === 'traceroute' }" class="btn-cyber-tab">🧭 Traceroute</button>
-                <button @click="osintSubTab = 'lan_scan'" :class="{ 'active': osintSubTab === 'lan_scan' }" class="btn-cyber-tab">🛡️ Escáner Seguridad LAN</button>
+                <button @click="osintSubTab = 'email'" :class="{ 'active': osintSubTab === 'email' }" class="btn-cyber-tab" {% if request.user.profile.role == 'operator' %}disabled{% endif %}>✉️ Email</button>
+                <button @click="osintSubTab = 'traceroute'" :class="{ 'active': osintSubTab === 'traceroute' }" class="btn-cyber-tab" {% if request.user.profile.role == 'operator' %}disabled{% endif %}>🧭 Traceroute</button>
+                <button @click="osintSubTab = 'lan_scan'" :class="{ 'active': osintSubTab === 'lan_scan' }" class="btn-cyber-tab" {% if request.user.profile.role == 'operator' %}disabled{% endif %}>🛡️ Escáner Seguridad LAN</button>
             </div>
         </div>
 

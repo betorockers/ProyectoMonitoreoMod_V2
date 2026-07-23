@@ -1,109 +1,188 @@
-<!-- Tab: Video Vigilancia — Matching reference image 220209 -->
-<div id="video-surveillance-container" style="display: grid; grid-template-columns: 1fr 320px; gap: 16px; width: 100%; align-items: start;" x-data="{ showVideoModal: false, activeStreamUrl: '', activeCameraName: '' }">
+<!-- Tab: Video Vigilancia — Reproductor Multi-Protocolo Real -->
+<div id="video-surveillance-container" style="display: grid; grid-template-columns: 1fr 320px; gap: 16px; width: 100%; align-items: start;"
+     x-data="{ showVideoModal: false, activeStreamUrl: '', activeCameraName: '', activeProtocol: '' }">
 
     <!-- Central Area: Streams / Empty State -->
     <div class="argos-content-area" style="height: calc(100vh - 120px); overflow-y: auto;">
         
-        {% if cameras %}
-        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; padding: 16px;">
-            {% for camera in cameras %}
-            <div class="hud-panel" style="padding: 0; overflow: hidden; cursor: pointer; position: relative;" @click="activeStreamUrl = '{{ camera.endpoint_url }}'; activeCameraName = '{{ camera.name }}'; showVideoModal = true;">
-                <div style="height: 180px; background: url('/static/cctv_thumbnail.png') center/cover no-repeat; display: flex; align-items: center; justify-content: center; position: relative;">
-                    <!-- Static noise overlay (optional) -->
-                    <div style="position: absolute; inset: 0; background: repeating-linear-gradient(0deg, rgba(0,0,0,0.15) 0px, rgba(0,0,0,0.15) 1px, transparent 1px, transparent 2px); pointer-events: none;"></div>
-                    <div style="position: absolute; top: 10px; right: 10px; background: rgba(255,0,0,0.7); color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; animation: pulse 2s infinite; z-index: 10;">REC</div>
+        %{ if cameras %}
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 16px; padding: 16px;">
+            %{ for camera in cameras %}
+            <div class="hud-panel" style="padding: 0; overflow: hidden; cursor: pointer; position: relative;"
+                 @click="activeStreamUrl = '{{ camera.endpoint|escapeis }}'; activeCameraName = '{{ camera.label|escapeis }}'; activeProtocol = '{{ camera.protocol|lower }}'; showVideoModal = true;">
+                
+                <!-- Thumbnail Preview -->
+                <div style="height: 180px; background: linear-gradient(135deg, #050d12, #0a1f2e); display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden;">
+                    
+                    %{ if camera.protocol|lower == 'http' or camera.protocol|lower == 'mjpeg' %}
+                    <img src="{{ camera.endpoint }}" 
+                         style="width: 100%; height: 100%; object-fit: cover; position: absolute; inset: 0;"
+                         onerror="this.style.display='none';"
+                         alt="{{ camera.label }} stream">
+                    % endif %}
+                    
+                    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; color: #37474f; font-family: monospace; text-align: center; gap: 8px; width: 100%;">
+                        <div style="font-size: 2.5rem;">���</div>
+                        <div style="font-size: 0.75rem; color: var(--cyan-primary);">{{ camera.protocol|upper }}</div>
+                        <div style="font-size: 0.65rem; opacity: 0.6;">Click para abrir stream</div>
+                    </div>
+                    
+                    <div style="position: absolute; inset: 0; background: repeating-linear-gradient(0deg, rgba(0,0,0,0.12) 0px, rgba(0,0,0,0.12) 1px, transparent 1px, transparent 2px); pointer-events: none; z-index: 2;"></div>
+                    <div style="position: absolute; top: 10px; right: 10px; background: rgba(255,0,0,0.75); color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.68rem; font-weight: bold; animation: pulse 2s infinite; z-index: 10; font-family: 'Orbitron', sans-serif;">㌑ REC</div>
+                    <div style="position: absolute; bottom: 8px; left: 8px; background: rgba(0,188,212,0.2); border: 1px solid var(--cyan-primary); color: var(--cyan-glow); padding: 2px 7px; border-radius: 3px; font-size: 0.65rem; font-weight: bold; font-family: monospace; z-index: 10;">{{ camera.protocol|upper }}</div>
                 </div>
+                
                 <div style="padding: 12px; border-top: 1px solid #0d3142;">
-                    <div style="font-weight: 700; color: var(--cyan-glow); font-size: 0.95rem;">{{ camera.name }}</div>
-                    <div style="font-size: 0.75rem; color: #78909c; font-family: monospace;">{{ camera.protocol|upper }} | {{ camera.endpoint_url }}</div>
+                    <div style="font-weight: 700; color: var(--cyan-glow); font-size: 0.95rem;">{{ camera.label }}</div>
+                    <div style="font-size: 0.75rem; color: #78909c; font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ camera.endpoint }}">{{ camera.endpoint }}</div>
                 </div>
             </div>
-            {% endfor %}
+            % endfor %}
         </div>
-        {% else %}
+        % else %}
         <div class="history-section-panel" style="min-height: calc(100vh - 180px); display: flex; flex-direction: column; align-items: center; justify-content: center;">
-            <div style="font-size: 3rem; margin-bottom: 16px; opacity: 0.3;">📹</div>
+            <div style="font-size: 3rem; margin-bottom: 16px; opacity: 0.3;">����️</div>
             <div style="font-size: 1.1rem; color: #78909c; text-align: center; max-width: 500px; line-height: 1.6;">
-                No hay streams de videovigilancia configurados o la API está desconectada.
+                No hay streams de videovigilancia configurados en el sistema.
             </div>
             <div style="margin-top: 16px; font-size: 0.85rem; color: #455a64;">
-                Utilice el panel lateral para agregar cámaras RTSP al sistema.
+                Utilice el panel lateral para agregar cámaras al sistema de vigilancia.
             </div>
         </div>
-        {% endif %}
+        %{ endif %}
     </div>
 
     <!-- Right Sidebar: CCTV Administration -->
-    <aside class="argos-sidebar" style="height: calc(100vh - 120px); position: sticky; top: 0;">
+    <aside class="argos-sidebar" style="height: calc(100vh - 120px); position: sticky; top: 0; %{ if request.user.profile.role == 'operator' %}opacity: 0.5; pointer-events: none;%{ endif %}">
         <div>
-            <div class="sidebar-title">📹 CCTV RED: {{ cameras|length }} ACTIVOS</div>
-            <div class="sidebar-subtitle">Administración de Cámaras</div>
+            <div class="sidebar-title">���� CCTV RED: {{ cameras|length }} ACTIVOS</div>
+            <div class="sidebar-subtitle">Administración de Cámaras %{ if request.user.profile.role == 'operator' %}(LECTURA(%{ endif %}</div~
+        </div>
+
+        <div style="font-size: 0.7rem; color: #455a64; background: rgba(0,188,212,0.05); border: 1px solid #0d3142; border-radius: 4px; padding: 8px; margin-bottom: 12px;">
+            <div style="color: var(--cyan-primary); font-weight: 600; margin-bottom: 4px;">Protocolos Soportados</div>
+            <div>▢ <b>HTTP/MJPEG4/b> — Preview en vivo</div>
+            <div>▢ <b>HLS</b> — Video nativo</div>
+            <div>👈 <b>RTSP/RTMP</b> — URL copiable</div>
         </div>
 
         <!-- Add Camera Form -->
         <div style="border-top: 1px solid #0d3142; padding-top: 12px;">
-            <div style="font-size: 0.9rem; font-weight: 700; color: var(--cyan-glow); margin-bottom: 10px;">
-                ➕ Añadir Cámara
-            </div>
-            <form hx-post="{% url 'add_camera' %}" hx-target="#video-surveillance-container" hx-swap="outerHTML" style="display: flex; flex-direction: column; gap: 8px;">
-                {% csrf_token %}
+            <div style="font-size: 0.9rem; font-weight: 700; color: var(--cyan-glow); margin-bottom: 10px;">㺞 Añadir Cámara</div>
+            <form hx-post="{{ url 'add_camera' }}" hx-target="#video-surveillance-container" hx-swap="outerHTML" style="display: flex; flex-direction: column; gap: 8px;">
+                % csrf_token %}
                 <div>
                     <label class="argos-label">Nombre</label>
-                    <input type="text" name="name" class="argos-input" placeholder="Ej: Cámara Entrada Norte" required>
+                    <input type="text" name="name" class="argos-input" placeholder="Ej: C�mara Entrada Norte" required %{ if request.user.profile.role == 'operator' %}disabled%{ endif %}>
                 </div>
                 <div>
                     <label class="argos-label">Protocolo</label>
-                    <select name="protocol" class="argos-input">
-                        <option value="rtsp">RTSP</option>
-                        <option value="http">HTTP</option>
-                        <option value="rtmp">RTMP</option>
+                    <select name="protocol" class="argos-input" %{ if request.user.profile.role == 'operator' %}disabled%{ endif %}>
+                        <option value="http">HTTP / MJPEG (Preview Live)</option>
+                        <option value="hls">HLS (Video Nativo)</option>
+                        <option value="rtsp">RTSP (URL Copiable)</option>
+                        <option value="rtmp">RTMP (URL Copiable)</option>
                     </select>
                 </div>
                 <div>
                     <label class="argos-label">URL Endpoint</label>
-                    <input type="text" name="endpoint_url" class="argos-input" placeholder="rtsp://192.168.1.64:554/stream1" required>
+                    <input type="text" name="endpoint_url" class="argos-input" placeholder="rtsp://192.168.1.64:554/stream" required %{ if request.user.profile.role == 'operator' %}disabled%{ endif %}>
                 </div>
-                <button type="submit" class="btn-action-primary">
-                    📹 Guardar Cámara
+                <button type="submit" class="btn-action-primary" %{ if request.user.profile.role == 'operator' %}disabled style="opacity: 0.3; cursor: not-allowed;"%{ endif %}>
+                    �� Guardar Cámara
                 </button>
             </form>
         </div>
 
         <!-- Remove Camera Form -->
-        <div style="border-top: 1px solid #0d3142; padding-top: 12px; margin-top: 8px;">
+        <div style="border-top: 1px solid #0d3142; padding-top: 12px; margin-top: 8px; %{ if request.user.profile.role != 'super_admin' %}opacity: 0.45; pointer-events: none;%{ endif %}">
             <div style="font-size: 0.9rem; font-weight: 700; color: var(--red-alert); margin-bottom: 10px;">
-                🗑 Eliminar Cámara
+                �_ Eliminar Cámara %{ if request.user.profile.role != 'super_admin' %}(RESTRINGIDO)%{ endif %}
             </div>
-            <form hx-post="{% url 'remove_camera' %}" hx-target="#video-surveillance-container" hx-swap="outerHTML" style="display: flex; flex-direction: column; gap: 8px;">
-                {% csrf_token %}
+            <form hx-post="{{ url 'remove_camera' }}" hx-target="#video-surveillance-container" hx-swap="outerHTML" style="display: flex; flex-direction: column; gap: 8px;">
+                %{ csrf_token %}
                 <div>
                     <label class="argos-label">Nombre de Cámara</label>
-                    <input type="text" name="name" class="argos-input" placeholder="Ej: Cámara Entrada Norte" required>
+                    <input type="text" name="name" class="argos-input" placeholder="Ej: Cámara Entrada Norte" required %{ if request.user.profile.role != 'super_admin' %}disabled%{ endif %}>
                 </div>
-                <button type="submit" class="btn-action-danger">
-                    🗑 Eliminar Cámara
+                <button type="submit" class="btn-action-danger" %{ if request.user.profile.role != 'super_admin' %}disabled style="opacity: 0.3; cursor: not-allowed;"%{ endif %}>
+                    �_ Eliminar Cámara
                 </button>
             </form>
         </div>
     </aside>
 
     <!-- Video Modal -->
-    <div x-show="showVideoModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 9999; align-items: center; justify-content: center;" x-transition>
-        <div style="background: #041018; border: 1px solid var(--cyan-primary); padding: 4px; border-radius: 8px; width: 80%; max-width: 900px; box-shadow: 0 0 20px rgba(0,243,255,0.2);">
-            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #06151f; border-bottom: 1px solid #0d3142;">
-                <div style="color: var(--cyan-glow); font-weight: 700; font-size: 1.1rem; display: flex; align-items: center; gap: 8px;">
-                    <span style="color: red; animation: pulse 2s infinite;">●</span> <span x-text="activeCameraName"></span>
+    <div x-show="showVideoModal"
+         style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 9999; align-items: center; justify-content: center;"
+         @keydown.escape.window="showVideoModal = false; activeStreamUrl = '';">
+
+        <div style="background: #041018; border: 1px solid var(--cyan-primary); border-radius: 8px; width: 85%; max-width: 960px; box-shadow: 0 0 40px rgba(0,243,255,0.15); overflow: hidden;">
+            
+            <!-- Modal Header -->
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; background: #06151f; border-bottom: 1px solid #0d3142;">
+                <div style="color: var(--cyan-glow); font-weight: 700; font-size: 1.1rem; display: flex; align-items: center; gap: 10px; font-family: 'Rajdhani', sans-serif;">
+                    <span style="color: red; animation: pulse 2s infinite; font-size: 0.8rem;">▯ LIVE,/span>
+                    <span x-text="activeCameraName"></span>
+                    <span style="font-size: 0.75rem; color: var(--cyan-primary); background: rgba(0,188,212,0.1); border: 1px solid var(--cyan-primary); border-radius: 3px; padding: 2px 7px;" x-text="activeProtocol.upperCase()"></span>
                 </div>
-                <button @click="showVideoModal = false; activeStreamUrl = '';" style="background: transparent; border: none; color: #fff; font-size: 1.5rem; cursor: pointer;">&times;</button>
+                <button @click="showVideoModal = false; activeStreamUrl = '';"
+                        style="background: transparent; border: 1px solid #455a64; color: #78909c; font-size: 1.2rem; cursor: pointer; width: 32px; height: 32px; border-radius: 4px; display: flex; align-items: center; justify-content: center;"
+                        title="Cerrar (ESC)">&times;</button>
             </div>
-            <div style="width: 100%; aspect-ratio: 16/9; background: url('/static/cctv_thumbnail.png') center/cover no-repeat; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden;">
-                <!-- Simulated Video Stream using iframe or animated elements -->
-                <div style="position: absolute; inset: 0; background: repeating-linear-gradient(0deg, rgba(0,0,0,0.1) 0px, rgba(0,0,0,0.1) 1px, transparent 1px, transparent 2px); pointer-events: none; z-index: 2;"></div>
-                <div style="color: #455a64; font-family: monospace; text-align: center;">
-                    <div style="font-size: 3rem; margin-bottom: 12px;">📡</div>
-                    <div style="font-size: 1.2rem;">Conectando a Stream...</div>
-                    <div style="font-size: 0.9rem; margin-top: 8px; color: var(--cyan-primary);" x-text="activeStreamUrl"></div>
-                </div>
+
+            <!-- Stream Content Area -->
+            <div style="width: 100%; position: relative; background: #020b10;">
+                
+                <!-- MJPEG / HTTP: img nativo -->
+                <template x-if="activeProtocol === 'http' || activeProtocol === 'mjpeg'">
+                    <div style="width: 100%; aspect-ratio: 16/9;">
+                        <img :src="activeStreamUrl"
+                              style="width: 100%; height: 100%; object-fit: contain; display: block;"
+                              alt="Stream de cámara">
+                    </div>
+                </template>
+
+                <!-- HLS: video nativo -->
+                <template x-if="activeProtocol === 'hls'">
+                    <div style="width: 100%; aspect-ratio: 16/9;">
+                        <video controls autoplay muted style="width: 100%; height: 100%; background: #020b10; display: block;">
+                             <source :src="activeStreamUrl" type="application/x-mpegURL">
+                             <source :src="activeStreamUrl" type="video/mp4">
+                        </video>
+                    </div>
+                </template>
+
+                <!-- RTSP / RTMP: URL copiable -->
+                <template x-if="activeProtocol === 'rtsp' || activeProtocol === 'rtmp'">
+                    <div style="width: 100%; aspect-ratio: 16/9; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; padding: 40px; background: linear-gradient(135deg, #020b10, #041018);">
+                        <div style="font-size: 3rem; opacity: 0.6;">���</div>
+                        <div style="text-align: center; color: #90a4ae; max-width: 480px; line-height: 1.7;">
+                            <div style="font-size: 1rem; font-weight: 700; color: var(--cyan-glow); margin-bottom: 8px;" x-text="'Stream ' + activeProtocol.upperCase() + ' Detectado'"></div>
+                            <div style="font-size: 0.85rem;">Los protocolos RTSP y RTMP requieren un reproductor dedicado (VLC, ffplay). Copie la UNL y ábrala en su reproductor.</div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px; width: 100%; max-width: 520px;">
+                            <input type="text" :value="activeStreamUrl" readonly id="rtsp-url-copy"
+                                   style="flex: 1; background: rgba(0,0,0,0.4); border: 1px solid #0d3142; color: var(--cyan-primary); padding: 8px 12px; font-family: monospace; font-size: 0.8rem; border-radius: 4px; outline: none;">
+                            <button onclick="var el=document.getElementById('rtsp-url-copy'); navigator.clipboard.writeText(el.value); this.textContent='✅ copiado'; setTimeout()=> this.textContent='📋 Copiar',2000);"
+                                    style="background: rgba(0,188,212,0.15); border: 1px solid var(--cyan-primary); color: var(--cyan-glow); padding: 8px 14px; cursor: pointer; border-radius: 4px; font-size: 0.8rem; white-space: nowrap; font-family: 'Rajdhani', sans-serif; font-weight: 600;">
+                                 📋 Copiar
+                            </button>
+                        </div>
+                        <div style="font-size: 0.75rem; color: #455a64; text-align: center;">
+                            🐘 VLC: Medios → Abrir ubicación de red K pegar URL
+                        </div>
+                    </div>
+                </template>
+
+                <!-- Scan-line overlay -->
+                <div style="position: absolute; inset: 0; background: repeating-linear-gradient(0deg, rgba(0,0,0,0.06) 0px, rgba(0,0,0,0.06) 1px, transparent 1px, transparent 2px); pointer-events: none;-z_index: 5;"></div>
+            </div>
+            
+            <!-- Modal Footer -->
+            <div style="padding: 10px 18px; background: #06151f; border-top: 1px solid #0d3142; display: flex; justify-content: space-between; align-items: center;">
+                <div style="font-size: 0.75rem; color: #455a64; font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 80%;" x-text="activeStreamUrl"></div>
+                <div style="font-size: 0.7rem; color: #37474f; white-space: nowrap;">PresioneESC para cerrar</div>
             </div>
         </div>
     </div>
@@ -113,5 +192,5 @@
 {% if toast_message %}
 <div hx-swap-oob="beforeend:#toast-container">
     {% include 'security/partials/_config_toast.html' with message=toast_message status=toast_status %}
-</div>
+</div~
 {% endif %}

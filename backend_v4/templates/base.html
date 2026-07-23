@@ -38,9 +38,15 @@
             <button @click="currentTab = 'monitoring'" :class="{ 'active': currentTab === 'monitoring' }" class="argos-tab-btn">
                 Monitoreo Activo
             </button>
+            {% if request.user.profile.role != 'operator' %}
             <button @click="currentTab = 'map'; setTimeout(() => window.dispatchEvent(new Event('resize')), 100);" :class="{ 'active': currentTab === 'map' }" class="argos-tab-btn">
                 Mapa Táctico
             </button>
+            {% else %}
+            <button class="argos-tab-btn" style="opacity: 0.3; cursor: not-allowed; color: #455a64; border-color: rgba(0, 243, 255, 0.05);" title="Pestaña deshabilitada para rol OPERADOR" disabled>
+                Mapa Táctico
+            </button>
+            {% endif %}
             <button @click="currentTab = 'history'" :class="{ 'active': currentTab === 'history' }" class="argos-tab-btn">
                 Historial Eventos
             </button>
@@ -50,9 +56,15 @@
             <button @click="currentTab = 'osint'" :class="{ 'active': currentTab === 'osint' }" class="argos-tab-btn">
                 OSINT
             </button>
+            {% if request.user.profile.role != 'operator' %}
             <button @click="currentTab = 'config'" :class="{ 'active': currentTab === 'config' }" class="argos-tab-btn">
                 Configuración
             </button>
+            {% else %}
+            <button class="argos-tab-btn" style="opacity: 0.3; cursor: not-allowed; color: #455a64; border-color: rgba(0, 243, 255, 0.05);" title="Pestaña deshabilitada para rol OPERADOR" disabled>
+                Configuración
+            </button>
+            {% endif %}
         </nav>
 
         <div class="argos-top-status">
@@ -72,7 +84,7 @@
     </div>
 
     <!-- Bottom Bar Matching Image 2 -->
-    <footer class="argos-footer">
+    <footer class="argos-footer" style="display: flex; justify-content: space-between; align-items: center;">
         <div class="footer-timestamp" x-data="{ time: '' }" x-init="
             const updateTime = () => {
                 const d = new Date();
@@ -84,7 +96,23 @@
         " x-text="time">
             {% now "d/m/Y|H:i:s" %}
         </div>
-        <div>
+        
+        <!-- Rol del Usuario Centrado -->
+        <div style="font-family: 'Rajdhani', sans-serif; font-size: 0.95rem; font-weight: bold; letter-spacing: 0.5px; color: var(--cyan-glow); text-shadow: 0 0 8px rgba(0, 243, 255, 0.4); text-align: center;">
+            SESIÓN: <strong>
+                {% if request.user.profile.role == 'super_admin' %}
+                    SUPER ADMINISTRADOR
+                {% elif request.user.profile.role == 'admin' %}
+                    ADMINISTRADOR
+                {% elif request.user.profile.role == 'operator' %}
+                    OPERADOR
+                {% else %}
+                    LECTOR / AUDITOR
+                {% endif %}
+            </strong>
+        </div>
+        
+        <div style="text-align: right;">
             Argos Guard Enterprise © Agencia de desarrollo y programacion @BetoGraf_Inc 2026
         </div>
     </footer>
