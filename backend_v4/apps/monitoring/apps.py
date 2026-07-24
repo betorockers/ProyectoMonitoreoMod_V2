@@ -1,11 +1,12 @@
+import os
 from django.apps import AppConfig
 
 class MonitoringConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'apps.monitoring'
+    path = os.path.dirname(os.path.abspath(__file__))
 
     def ready(self):
-        import os
         import sys
         # Iniciar daemon únicamente en el proceso worker de Django (no en el reloader/padre).
         # En desarrollo: RUN_MAIN='true' identifica el proceso hijo que ejecuta la app.
