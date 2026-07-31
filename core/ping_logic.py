@@ -79,14 +79,11 @@ def ping_ip(ip: str, monitor, interval_sec: int) -> None:
         if success:
             mac_address = get_mac_address(ip)
             try:
-                if platform.system().lower() == "windows":
-                    match = re.search(r"tiempo[=<](\d+)", result.stdout, re.IGNORECASE)
-                    if not match:
-                        match = re.search(r"time[=<](\d+)", result.stdout, re.IGNORECASE)
-                else:
-                    match = re.search(r"time=([\d.]+)", result.stdout, re.IGNORECASE)
-                if match:
-                    latencia = float(match.group(1))
+                reply = result.stdout
+                if "time=" in reply or "tiempo=" in reply:
+                    match = re.search(r"(?:time|tiempo)[=<]([\d.]+)\s*ms", reply, re.IGNORECASE)
+                    if match:
+                        latencia = float(match.group(1))
             except Exception:  # FIX H-13: bare except → except Exception
                 pass
 

@@ -628,13 +628,16 @@ class IPMonitor(customtkinter.CTkFrame):
                     )
                 self.disconnection_timestamp = None
                 self.critical_telegram_sent = False
-                self.send_alert(
-                    f"¡Recuperado! {self.label} está en línea de nuevo.",
-                    "green",
-                    "recuperado.mp3",
-                )
-
-                self.send_telegram_alert("recovery", downtime_minutes=downtime_minutes)
+                
+                # Solo enviar alerta de recuperación si previamente estaba reportado como desconectado
+                # Evita enviar alertas falsas al iniciar la app o al presionar Recargar (Verificando... -> Conectado)
+                if self.previous_status == "Desconectado":
+                    self.send_alert(
+                        f"¡Recuperado! {self.label} está en línea de nuevo.",
+                        "green",
+                        "recuperado.mp3",
+                    )
+                    self.send_telegram_alert("recovery", downtime_minutes=downtime_minutes)
         elif (
             self.status == "Desconectado"
             and self.disconnection_timestamp
@@ -1922,6 +1925,7 @@ class App(customtkinter.CTk):
             thread = threading.Thread(
                 target=ping_ip,
                 args=(equipo["ip"], monitor, self.ping_interval),
+                daemon=True,
             )
             thread.start()
 

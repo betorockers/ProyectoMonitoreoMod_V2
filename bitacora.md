@@ -1,4 +1,4 @@
-﻿# Bitácora del Proyecto
+# Bitácora del Proyecto
 ## Anvic Network Sentinel v2.2.1
 
 ## Fecha de actualización
@@ -162,3 +162,9 @@ La `v2.2.1` representa un salto importante respecto a las versiones previas. El 
 
 ### 30 de Julio 2026 - Cierre de Versión 2.2.1
 Se finalizaron las integraciones del pipeline de compilación. El ejecutable ahora está fuertemente ofuscado con Cython, empaquetado con Pyinstaller, y sellado con Inno Setup pidiendo la validación criptográfica RSA antes y durante la instalación. Se parcheó el sistema de audio para corregir un bug de recolección de basura con Pygame. Se generó copia de seguridad del código completo.
+
+### 31 de Julio 2026 - Hotfixes de Producción y Nueva Rama Arquitectónica
+- **Fix Gráfico de Latencia:** Se corrigió un error en el parseo de la salida del comando Ping en Windows en español, permitiendo que el historial SQLite y el Canvas registren y dibujen correctamente las fluctuaciones de latencia en milisegundos.
+- **Fix Alertas Falsas Telegram:** Se neutralizó el disparo de notificaciones de recuperación ("Recovery") durante los reinicios de la aplicación y reconexiones por suspensión del OS.
+- **Hardening Threads:** Se inyectó el flag `daemon=True` en los hilos de `ping_ip` para prevenir que la aplicación quede colgada en memoria (thread leak) al cerrar la ventana principal.
+- **Transición:** Se realizó una compilación limpia (build exitoso) de la versión estabilizada y se bifurcó el repositorio hacia la rama `feature/cctv-osint` para comenzar el desarrollo de Video Vigilancia e Inteligencia Operativa sin romper el código core.
