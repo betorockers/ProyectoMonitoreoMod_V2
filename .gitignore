@@ -15,3 +15,12 @@ anvic_monitor.db*
 *.lib
 *.pyd
 *.c
+anvic_master.key
+*.enc
+*.enc.*
+chrome_profile_temp/
+chrome_profile_temp2/
+*.html
+error.png
+credenciales.txt
+test_*.py

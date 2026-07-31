@@ -69,7 +69,7 @@ class MetricasHistoricas:
         rows = cursor.fetchall()
         
         return {
-            "timestamps": [row["timestamp"] for row in rows],
+            "timestamps": [datetime.datetime.strptime(row["timestamp"], "%Y-%m-%d %H:%M:%S.%f") if isinstance(row["timestamp"], str) and "." in row["timestamp"] else datetime.datetime.strptime(row["timestamp"], "%Y-%m-%d %H:%M:%S") if isinstance(row["timestamp"], str) else row["timestamp"] for row in rows],
             "latencias": [row["latencia"] if row["latencia"] is not None else 0 for row in rows],
             "estados": [row["estado"] for row in rows]
         }

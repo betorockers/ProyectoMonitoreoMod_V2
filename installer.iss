@@ -1,11 +1,11 @@
-; Script de instalacion para Anvic Network Sentinel v2.2.1
+; Script de instalacion para Anvic Network Sentinel v2.2.2
 ; Inno Setup moderno, per-user y con enfoque de menor friccion operativa.
 
 #ifndef MyAppName
   #define MyAppName "Anvic Network Sentinel"
 #endif
 #ifndef MyAppVersion
-  #define MyAppVersion "2.2.1"
+  #define MyAppVersion "2.2.2"
 #endif
 #ifndef MyAppPublisher
   #define MyAppPublisher "BetoGraf_inc"
@@ -26,7 +26,7 @@
   #define MyAppRegistryRoot "Software\\ANVIC\\AnvicNetworkSentinel"
 #endif
 #ifndef MyOutputBaseFilename
-  #define MyOutputBaseFilename "Instalador_Anvic_Network_Sentinel_v2.2.1"
+  #define MyOutputBaseFilename "Instalador_Anvic_Network_Sentinel_v2.2.2"
 #endif
 #ifndef MyAppId
   #define MyAppId "{{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}"
@@ -62,7 +62,7 @@ LZMANumBlockThreads=4
 SolidCompression=yes
 OutputDir=Output
 OutputBaseFilename={#MyOutputBaseFilename}
-VersionInfoVersion=2.2.1.0
+VersionInfoVersion=2.2.2.0
 VersionInfoCompany={#MyAppPublisher}
 VersionInfoDescription=Plataforma de supervision tecnica y visual para instalaciones conectadas
 VersionInfoProductName={#MyAppName}
@@ -75,6 +75,19 @@ UsedUserAreasWarning=no
 DirExistsWarning=no
 DisableWelcomePage=no
 DisableDirPage=no
+
+; ── FIRMA DIGITAL AUTHENTICODE ──────────────────────────────────────────────
+; Inno Setup firmara automaticamente el instalador al compilar.
+; El certificado debe estar instalado antes de compilar.
+; Ejecutar primero: E:\Certificados\crear_certificado_anvic.ps1 (como Admin)
+;
+; signtool.exe debe estar en PATH (Windows SDK 10).
+; Ruta tipica: C:\Program Files (x86)\Windows Kits\10\bin\10.0.XXXXX.0\x64\
+SignTool=anvicsign
+SignedUninstaller=yes
+
+[SigningTool]
+anvicsign=signtool.exe sign /fd SHA256 /td SHA256 /tr http://timestamp.digicert.com /n "Anvic Network Sentinel" /a $f
 
 [Languages]
 Name: "spanish"; MessagesFile: "compiler:Languages\Spanish.isl"

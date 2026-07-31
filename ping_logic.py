@@ -54,7 +54,7 @@ def ping_ip(ip, monitor_widget, interval):
             reply = subprocess.check_output(command, startupinfo=startupinfo, text=True, stderr=subprocess.DEVNULL)
             
             if "time=" in reply or "tiempo=" in reply:
-                match = re.search(r"time[=<]([\d.]+)\s*ms", reply, re.IGNORECASE)
+                match = re.search(r"(?:time|tiempo)[=<]([\d.]+)\s*ms", reply, re.IGNORECASE)
                 if match:
                     latencia = float(match.group(1))
             

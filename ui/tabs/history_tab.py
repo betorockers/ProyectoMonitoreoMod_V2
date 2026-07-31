@@ -132,9 +132,10 @@ class HistoryTab:
                 lats = datos["latencias"]
                 paso = max(1, len(lats) // 40)
                 indices = list(range(0, len(lats), paso))
+                y_values = [lats[j] if lats[j] is not None else 0 for j in indices]
                 self.ax_latencia.plot(
                     range(len(indices)),
-                    [lats[j] for j in indices],
+                    y_values,
                     label=equipo["label"],
                     color=colores[i % len(colores)],
                     linewidth=2,

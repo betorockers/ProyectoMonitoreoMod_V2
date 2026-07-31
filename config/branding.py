@@ -9,7 +9,7 @@ SEGURIDAD: Este archivo NO contiene tokens ni credenciales.
 
 # --- Identidad del Proyecto ---
 APP_NAME = "Anvic Network Sentinel"
-VERSION = "2.2.1"
+VERSION = "2.2.2"
 AUTHOR = "BetoGraf_inc"
 POWERED_BY = f"Powered By {AUTHOR}"
 APP_TAGLINE = "El pulso de tu red bajo vigilancia."

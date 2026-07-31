@@ -20,11 +20,15 @@ def _get_startupinfo():
 
 def get_mac_address(ip: str) -> str:
     """Busca la dirección MAC en la tabla ARP después de un ping exitoso."""
+    clean_ip = ip.strip()
+    clean_ip = re.sub(r"^https?://", "", clean_ip)
+    clean_ip = clean_ip.split("/")[0].split(":")[0]
+    
     if platform.system().lower() == "windows":
-        arp_command = ["arp", "-a", ip]
+        arp_command = ["arp", "-a", clean_ip]
         mac_pattern = r"([a-fA-F0-9]{2}-[a-fA-F0-9]{2}-[a-fA-F0-9]{2}-[a-fA-F0-9]{2}-[a-fA-F0-9]{2}-[a-fA-F0-9]{2})"
     else:
-        arp_command = ["arp", ip]
+        arp_command = ["arp", clean_ip]
         mac_pattern = r"([a-fA-F0-9]{2}:[a-fA-F0-9]{2}:[a-fA-F0-9]{2}:[a-fA-F0-9]{2}:[a-fA-F0-9]{2}:[a-fA-F0-9]{2})"
 
     try:
@@ -52,9 +56,13 @@ def ping_ip(ip: str, monitor, interval_sec: int) -> None:
         monitor: Instancia de IPMonitor (ui.components.device_card).
         interval_sec: Segundos entre cada ping.
     """
+    clean_ip = ip.strip()
+    clean_ip = re.sub(r"^https?://", "", clean_ip)
+    clean_ip = clean_ip.split("/")[0].split(":")[0]
+
     param = "-n" if platform.system().lower() == "windows" else "-c"
     timeout_param = "-w" if platform.system().lower() == "windows" else "-W"
-    command = ["ping", param, "1", timeout_param, "1000", ip]
+    command = ["ping", param, "1", timeout_param, "1000", clean_ip]
     si = _get_startupinfo()
 
     while getattr(monitor, "_ping_thread_active", True):
@@ -80,9 +88,7 @@ def ping_ip(ip: str, monitor, interval_sec: int) -> None:
             mac_address = get_mac_address(ip)
             try:
                 if platform.system().lower() == "windows":
-                    match = re.search(r"tiempo[=<](\d+)", result.stdout, re.IGNORECASE)
-                    if not match:
-                        match = re.search(r"time[=<](\d+)", result.stdout, re.IGNORECASE)
+                    match = re.search(r"(?:time|tiempo)[=<]([\d.]+)", result.stdout, re.IGNORECASE)
                 else:
                     match = re.search(r"time=([\d.]+)", result.stdout, re.IGNORECASE)
                 if match:

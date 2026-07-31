@@ -40,7 +40,8 @@ from config.branding import (
     REPORT_FILE_PREFIX,
 )
 from ui.tabs.diagnostics_tab_secure import DiagnosticsTab as ModernDiagnosticsTab
-from ui.tabs.cameras_tab import CamerasTab
+from ui.tabs.video_vigilancia_tab import VideoVigilanciaTab
+from ui.tabs.osint_tab import OsintTab
 from secure_config_manager import SecureConfigManager
 from services.report_builder import ReportContext, build_network_report
 from config.build_profile import load_build_profile
@@ -298,7 +299,8 @@ class LoginWindow(customtkinter.CTkToplevel):
         self.password_entry.bind("<Return>", lambda e: self.login())
 
     def on_close(self):
-        self.master.destroy()
+        import os
+        os._exit(0)
 
     def login(self):
         username = self.username_entry.get()
@@ -467,7 +469,8 @@ class SetupWindow(customtkinter.CTkToplevel):
         self.error_lbl.pack(pady=5)
 
     def on_close(self):
-        self.master.destroy()
+        import os
+        os._exit(0)
 
     def perform_setup(self):
         user = self.user_entry.get()
@@ -654,32 +657,8 @@ class IPMonitor(customtkinter.CTkFrame):
         while not isinstance(app, customtkinter.CTk) and app.master is not None:
             app = app.master
 
-        # Notificación personalizada tipo Toast
-        try:
-            title = f"{APP_NAME}: Cambio de Estado"
-            ToastNotification(app, title, message, color=color)
-        except Exception as e:
-            print(f"Error al mostrar Toast: {e}")
-
-        # Reproducir sonido solo si el sistema de audio está habilitado
-        if hasattr(app, "audio_enabled") and app.audio_enabled:
-            try:
-                sound_path = os.path.join(ASSETS_PATH, sound_file)
-                if not pygame.mixer.get_init():
-                    pygame.mixer.init()
-                self._last_sound = pygame.mixer.Sound(sound_path)
-                self._last_sound.play()
-            except Exception as e:
-                print(f"Error al reproducir el sonido: {e}")
-                print(f"Ruta del archivo de sonido intentada: {os.path.abspath(sound_path)}")
-                try:
-                    import winsound
-                    if "alerta" in sound_file:
-                        winsound.MessageBeep(winsound.MB_ICONHAND)
-                    else:
-                        winsound.MessageBeep(winsound.MB_ICONASTERISK)
-                except Exception:
-                    pass
+        if hasattr(app, "send_alert"):
+            app.send_alert(message, color, sound_file)
 
     def send_telegram_alert(self, alert_type, downtime_minutes=None):
         app = self.master
@@ -713,6 +692,7 @@ class App(customtkinter.CTk):
 
 
         self.withdraw()  # Iniciar oculto
+        self.protocol("WM_DELETE_WINDOW", self.on_closing)
         self.equipos_a_monitorear = equipos_a_monitorear
         self.current_user = None
         self.services_started = False
@@ -798,6 +778,32 @@ class App(customtkinter.CTk):
         else:
             self.show_license_activation(self.license_state.message)
 
+    def send_alert(self, message, color="green", sound_file=None):
+        """Metodo global para enviar notificaciones tipo Toast y sonidos."""
+        try:
+            title = f"{APP_NAME}: Notificación"
+            ToastNotification(self, title, message, color=color)
+        except Exception as e:
+            print(f"Error al mostrar Toast: {e}")
+
+        if sound_file and hasattr(self, "audio_enabled") and self.audio_enabled:
+            try:
+                sound_path = os.path.join(ASSETS_PATH, sound_file)
+                if not pygame.mixer.get_init():
+                    pygame.mixer.init()
+                self._last_sound = pygame.mixer.Sound(sound_path)
+                self._last_sound.play()
+            except Exception as e:
+                print(f"Error al reproducir el sonido: {e}")
+                try:
+                    import winsound
+                    if "alerta" in sound_file:
+                        winsound.MessageBeep(winsound.MB_ICONHAND)
+                    else:
+                        winsound.MessageBeep(winsound.MB_ICONASTERISK)
+                except Exception:
+                    pass
+
     def enter_demo_mode(self):
         self.current_user = {
             "username": "demo",
@@ -813,7 +819,7 @@ class App(customtkinter.CTk):
         self.license_window = LicenseActivationWindow(
             self,
             self.handle_license_activation,
-            self.quit,
+            lambda: __import__('os')._exit(0),
             get_machine_fingerprint(),
             message or "Ingrese un serial valido para continuar.",
         )
@@ -1038,11 +1044,29 @@ class App(customtkinter.CTk):
                 )
             )
 
+    def on_closing(self):
+        """Hard kill of the app and all background threads to avoid zombies"""
+        import os
+        os._exit(0)
+
     def show_login(self):
+        # Detener hilos y procesos en segundo plano
+        if hasattr(self, 'monitors'):
+            for monitor in self.monitors.values():
+                monitor._ping_thread_active = False
+        
+        if hasattr(self, 'video_vigilancia_controller'):
+            self.video_vigilancia_controller.is_playing = False
+            self.video_vigilancia_controller.is_recording = False
+
         # Limpiar ventana principal y ocultarla
         for widget in self.winfo_children():
             widget.destroy()
         self.withdraw()
+        
+        # Resetear recursos clave
+        self.monitors = {}
+        self.services_started = False
 
         # Si no hay usuarios registrados, mostrar Setup
         if not self.auth.users:
@@ -1084,18 +1108,19 @@ class App(customtkinter.CTk):
         self.tab_historial = self.tabview.add("Historial Operacional")
 
         if self.build_profile.enable_visual_supervision:
-            self.tab_camaras = self.tabview.add("Supervision Visual")
-            self.cameras_tab_controller = CamerasTab(self, self.tab_camaras)
+            self.tab_camaras = self.tabview.add("Video Vigilancia")
+            self.video_vigilancia_controller = VideoVigilanciaTab(self, self.tab_camaras)
 
         if (
             self.build_profile.enable_support_center
             and self.build_profile.enable_administration
             and self.current_user["role"] in ["super_admin", "admin"]
         ):
-            self.tab_diagnostico = self.tabview.add("Centro de Soporte")
+            self.tab_diagnostico = self.tabview.add("Servicios OSINT")
+            self.osint_controller = OsintTab(self, self.tab_diagnostico)
+            
             self.tab_usuarios = self.tabview.add("Administracion")
             self.setup_user_management_tab()
-            self.setup_diagnostics_tab()
         self.refresh_license_summary_ui()
 
         self.monitor_frame = customtkinter.CTkScrollableFrame(self.tab_monitoreo)
@@ -1207,11 +1232,11 @@ class App(customtkinter.CTk):
         self.ping_interval_entry.insert(0, str(self.ping_interval))
 
         self.ip_label = customtkinter.CTkLabel(
-            self.sidebar_frame, text="Dirección IP:", font=("Arial", 12)
+            self.sidebar_frame, text="IP, URL o Dominio:", font=("Arial", 12)
         )
         self.ip_label.grid(row=4, column=0, padx=10, pady=(5, 0), sticky="w")
         self.ip_entry = customtkinter.CTkEntry(
-            self.sidebar_frame, placeholder_text="ej. 192.168.1.1"
+            self.sidebar_frame, placeholder_text="ej. 192.168.1.1 o web.cl"
         )
         self.ip_entry.grid(row=5, column=0, padx=10, pady=2, sticky="ew")
 
@@ -2277,9 +2302,11 @@ class App(customtkinter.CTk):
                 latencias = datos["latencias"]
                 paso = max(1, len(latencias) // 40)
                 indices = range(0, len(latencias), paso)
+                # Reemplazar None con 0 para evitar crasheos (TypeError)
+                y_values = [latencias[j] if latencias[j] is not None else 0 for j in indices]
                 self.ax_latencia.plot(
-                    [i for i in range(len(indices))],
-                    [latencias[j] for j in indices],
+                    [k for k in range(len(indices))],
+                    y_values,
                     label=equipo["label"],
                     color=colores[i % len(colores)],
                     linewidth=2,
