@@ -1,0 +1,8 @@
+{
+  "services": [
+    { "name": "Spooler", "description": "Servicio de Cola de Impresión" },
+    { "name": "w32time", "description": "Servicio de Hora de Windows" },
+    { "name": "BITS", "description": "Servicio de Transferencia Inteligente en Segundo Plano" },
+    { "name": "WinDefend", "description": "Antivirus de Microsoft Defender" }
+  ]
+}

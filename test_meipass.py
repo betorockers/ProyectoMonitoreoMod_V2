@@ -1,0 +1,1 @@
+import sys; print('MEIPASS:', getattr(sys, '_MEIPASS', 'NOT_SET'))

@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+*.pyo
+build/
+dist/
+Output/
+*.spec
+private_key.pem
+public_key.pem
+.env
+seriales_validas.txt
+anvic_monitor.db*
+*.log
+*.exp
+*.lib
+*.pyd
+*.c

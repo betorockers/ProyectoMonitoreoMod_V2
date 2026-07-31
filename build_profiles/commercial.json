@@ -1,0 +1,12 @@
+{
+  "profile_id": "commercial",
+  "label": "Comercial",
+  "app_name": "Anvic Network Sentinel",
+  "window_title_suffix": "",
+  "require_license_activation": true,
+  "preload_default_equipment": true,
+  "auto_login_demo_user": false,
+  "enable_visual_supervision": true,
+  "enable_support_center": true,
+  "enable_administration": true
+}

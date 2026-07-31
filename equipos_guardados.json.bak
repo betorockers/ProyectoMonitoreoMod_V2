@@ -1,0 +1,75 @@
+{
+    "intervalo_ping": 25,
+    "equipos": [
+        {
+            "ip": "10.88.6.58",
+            "label": "Totem de Entrada Quilicura",
+            "desconexiones_count": 0,
+            "mac_address": "No disponible (ARP)",
+            "disconnection_timestamp": null
+        },
+        {
+            "ip": "10.88.6.60",
+            "label": "Totem de salida Quilicura",
+            "desconexiones_count": 0,
+            "mac_address": "No disponible (ARP)",
+            "disconnection_timestamp": null
+        },
+        {
+            "ip": "10.88.6.57",
+            "label": "LPR Quilicura Entrada",
+            "desconexiones_count": 0,
+            "mac_address": "No disponible (ARP)",
+            "disconnection_timestamp": null
+        },
+        {
+            "ip": "10.88.6.54",
+            "label": "LPR Quiilicura salida",
+            "desconexiones_count": 0,
+            "mac_address": "No disponible (ARP)",
+            "disconnection_timestamp": null
+        },
+        {
+            "ip": "10.88.22.59",
+            "label": "Totem de Entrada Renca",
+            "desconexiones_count": 0,
+            "mac_address": "DC:A6:32:FC:E0:B6",
+            "disconnection_timestamp": null
+        },
+        {
+            "ip": "10.88.22.65",
+            "label": "Totem de Salida Renca",
+            "desconexiones_count": 0,
+            "mac_address": "DC:A6:32:FC:E0:C2",
+            "disconnection_timestamp": null
+        },
+        {
+            "ip": "10.88.22.62",
+            "label": "LPR Renca Entrada",
+            "desconexiones_count": 0,
+            "mac_address": "00:17:61:12:F6:DB",
+            "disconnection_timestamp": null
+        },
+        {
+            "ip": "10.88.22.54",
+            "label": "LPR Renca Salida",
+            "desconexiones_count": 0,
+            "mac_address": "24:48:45:D1:A4:EA",
+            "disconnection_timestamp": null
+        },
+        {
+            "ip": "10.88.6.56",
+            "label": "Kiosko Quilicura",
+            "desconexiones_count": 0,
+            "mac_address": "No disponible (ARP)",
+            "disconnection_timestamp": null
+        },
+        {
+            "ip": "10.88.22.63",
+            "label": "Kiosko Renca",
+            "desconexiones_count": 0,
+            "mac_address": "00:23:24:73:08:C9",
+            "disconnection_timestamp": null
+        }
+    ]
+}

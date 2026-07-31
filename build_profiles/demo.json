@@ -1,0 +1,12 @@
+{
+  "profile_id": "demo",
+  "label": "Demo",
+  "app_name": "Anvic Network Sentinel Demo",
+  "window_title_suffix": "Demo",
+  "require_license_activation": false,
+  "preload_default_equipment": false,
+  "auto_login_demo_user": true,
+  "enable_visual_supervision": true,
+  "enable_support_center": false,
+  "enable_administration": false
+}

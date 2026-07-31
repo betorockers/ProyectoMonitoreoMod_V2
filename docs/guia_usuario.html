@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>guia_usuario.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="manual-de-usuario">Manual de Usuario</h1>
+<h2 id="anvic-network-sentinel-v22---edici%C3%B3n-pro">Anvic Network Sentinel v2.2 - Edición Pro</h2>
+<p>Este manual describe el uso operativo de <strong>Anvic Network Sentinel</strong> desde la instalación inicial hasta la utilización completa de sus funciones en la edición <code>Pro</code>.</p>
+<hr>
+<h2 id="1-introducci%C3%B3n">1. Introducción</h2>
+<p>Anvic Network Sentinel es una plataforma de monitoreo técnico y visual orientada a instalaciones conectadas. Su objetivo es permitir a operadores, técnicos y administradores:</p>
+<ul>
+<li>supervisar equipos en red</li>
+<li>diagnosticar conectividad y servicios</li>
+<li>observar cámaras y fuentes visuales</li>
+<li>generar reportes ejecutivos</li>
+<li>administrar usuarios, licencias y parámetros operativos</li>
+</ul>
+<p>La edición <code>Pro</code> concentra la experiencia completa del producto.</p>
+<hr>
+<h2 id="2-antes-de-instalar">2. Antes de instalar</h2>
+<p>Antes de comenzar, asegúrese de contar con:</p>
+<ul>
+<li>un equipo Windows 64 bits compatible</li>
+<li>serial de activación entregado por ANVIC</li>
+<li>conexión de red hacia los activos que monitoreará</li>
+<li>permisos para instalar software en el equipo anfitrión</li>
+</ul>
+<p>Si trabajará con cámaras, tenga disponibles:</p>
+<ul>
+<li>IP o hostname</li>
+<li>credenciales si aplica</li>
+<li>URL snapshot o RTSP</li>
+</ul>
+<p>Si trabajará con diagnósticos avanzados, tenga disponibles:</p>
+<ul>
+<li>puertos relevantes</li>
+<li>comunidad SNMP si corresponde</li>
+<li>credenciales SSH si corresponde</li>
+</ul>
+<hr>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<h2 id="3-instalaci%C3%B3n">3. Instalación</h2>
+<h2 id="31-ejecutar-el-instalador">3.1 Ejecutar el instalador</h2>
+<ol>
+<li>Abra el instalador oficial de Anvic Network Sentinel.</li>
+<li>Lea la bienvenida del wizard.</li>
+<li>Ingrese el serial solicitado.</li>
+<li>Seleccione la carpeta de instalación.</li>
+<li>Finalice el proceso.</li>
+</ol>
+<p>El instalador crea la estructura base y deja preparado el primer inicio de la aplicación.</p>
+<h2 id="32-primer-arranque">3.2 Primer arranque</h2>
+<p>Al abrir la aplicación por primera vez:</p>
+<ol>
+<li>se validará la licencia</li>
+<li>se completará la activación local del equipo</li>
+<li>se le pedirá crear el usuario administrador inicial si corresponde</li>
+</ol>
+<p>Si la licencia no es válida o ha expirado, la aplicación mostrará la ventana de activación o bloqueo correspondiente.</p>
+<hr>
+<h2 id="4-inicio-de-sesi%C3%B3n-y-seguridad">4. Inicio de sesión y seguridad</h2>
+<p>La aplicación utiliza autenticación local con roles y almacenamiento seguro.</p>
+<h3 id="rol-administrador">Rol administrador</h3>
+<p>Puede:</p>
+<ul>
+<li>crear usuarios</li>
+<li>configurar parámetros globales</li>
+<li>administrar licencias</li>
+<li>definir políticas TLS y SSH</li>
+<li>configurar supervisión visual y límites operativos</li>
+</ul>
+<h3 id="rol-operador">Rol operador</h3>
+<p>Puede:</p>
+<ul>
+<li>monitorear equipos</li>
+<li>revisar historial</li>
+<li>usar herramientas operativas habilitadas</li>
+<li>trabajar con cámaras según permisos visibles</li>
+</ul>
+<hr>
+<h2 id="5-estructura-general-de-la-aplicaci%C3%B3n">5. Estructura general de la aplicación</h2>
+<p>La versión actual se organiza en cinco módulos principales:</p>
+<ul>
+<li><code>Operación en Vivo</code></li>
+<li><code>Historial Operacional</code></li>
+<li><code>Supervisión Visual</code></li>
+<li><code>Centro de Soporte</code></li>
+<li><code>Administración</code></li>
+</ul>
+<hr>
+<h2 id="6-operaci%C3%B3n-en-vivo">6. Operación en Vivo</h2>
+<p>Este módulo es la vista principal de monitoreo.</p>
+<h3 id="qu%C3%A9-permite-hacer">Qué permite hacer</h3>
+<ul>
+<li>visualizar el estado actual de los equipos</li>
+<li>observar disponibilidad, latencia y cambios de estado</li>
+<li>cargar o actualizar inventario de activos monitoreados</li>
+<li>operar sobre el conjunto activo de equipos</li>
+</ul>
+<h3 id="flujo-t%C3%ADpico-de-uso">Flujo típico de uso</h3>
+<ol>
+<li>Agregue un equipo indicando IP o host, nombre y parámetros básicos.</li>
+<li>Guarde la configuración.</li>
+<li>Revise las tarjetas o bloques de estado.</li>
+<li>Observe cambios de color, alertas o latencias.</li>
+</ol>
+<h3 id="recomendaci%C3%B3n">Recomendación</h3>
+<p>Utilice nombres descriptivos por instalación, por ejemplo:</p>
+<ul>
+<li><code>Camara LPR Acceso Norte</code></li>
+<li><code>Totem Salida 01</code></li>
+<li><code>Kiosko Informativo Lobby</code></li>
+<li><code>Servidor MeiPass Local</code></li>
+</ul>
+<hr>
+<h2 id="7-historial-operacional">7. Historial Operacional</h2>
+<p>Este módulo concentra la trazabilidad y los gráficos históricos.</p>
+<h3 id="qu%C3%A9-incluye">Qué incluye</h3>
+<ul>
+<li>historial de eventos</li>
+<li>disponibilidad</li>
+<li>latencia</li>
+<li>visualizaciones más amplias para revisión ejecutiva</li>
+<li>base para reportes PDF</li>
+</ul>
+<h3 id="qu%C3%A9-revisar-aqu%C3%AD">Qué revisar aquí</h3>
+<ul>
+<li>patrones de caída</li>
+<li>estabilidad por horario</li>
+<li>equipos con mayor variación de latencia</li>
+<li>comportamiento general de la instalación</li>
+</ul>
+<hr>
+<h2 id="8-supervisi%C3%B3n-visual">8. Supervisión Visual</h2>
+<p>Este módulo se orienta a cámaras y validación visual de activos.</p>
+<p>Se divide en dos áreas:</p>
+<ul>
+<li><code>Perfiles y Pruebas</code></li>
+<li><code>Video en Vivo</code></li>
+</ul>
+<h2 id="81-perfiles-y-pruebas">8.1 Perfiles y Pruebas</h2>
+<p>Aquí se registran y prueban perfiles de cámara.</p>
+<h3 id="datos-habituales-de-un-perfil">Datos habituales de un perfil</h3>
+<ul>
+<li>nombre de cámara</li>
+<li>IP o hostname</li>
+<li>URL snapshot</li>
+<li>URL RTSP</li>
+<li>usuario</li>
+<li>contraseña</li>
+<li>observaciones si aplica</li>
+</ul>
+<h3 id="qu%C3%A9-permite-hacer">Qué permite hacer</h3>
+<ul>
+<li>guardar perfiles</li>
+<li>probar snapshot</li>
+<li>validar si la ruta RTSP responde</li>
+<li>enviar un perfil a la vista de video en vivo</li>
+</ul>
+<h2 id="82-video-en-vivo">8.2 Video en Vivo</h2>
+<p>Aquí se opera la visualización continua.</p>
+<h3 id="qu%C3%A9-permite-hacer">Qué permite hacer</h3>
+<ul>
+<li>iniciar vista en vivo</li>
+<li>operar con RTSP real si la fuente está disponible</li>
+<li>caer a snapshot si no hay stream continuo</li>
+<li>manejar mosaico operativo según límite de streams simultáneos</li>
+</ul>
+<h3 id="recomendaciones-operativas">Recomendaciones operativas</h3>
+<ul>
+<li>use streams secundarios si las cámaras lo permiten</li>
+<li>no configure más streams simultáneos que los que el host soporte de forma estable</li>
+<li>si una cámara es legacy, pruebe primero snapshot antes de exigir RTSP</li>
+</ul>
+<hr>
+<h2 id="9-centro-de-soporte">9. Centro de Soporte</h2>
+<p>Este módulo combina herramientas de diagnóstico remoto y soporte local del puesto Sentinel.</p>
+<p>Se organiza en dos grandes áreas:</p>
+<ul>
+<li><code>Red e Instalaciones</code></li>
+<li><code>Estado del Puesto</code></li>
+</ul>
+<h2 id="91-red-e-instalaciones">9.1 Red e Instalaciones</h2>
+<p>Aquí se concentran las herramientas orientadas a la red o al activo remoto.</p>
+<h3 id="resumen-de-red">Resumen de Red</h3>
+<p>Incluye:</p>
+<ul>
+<li><code>Ping</code></li>
+<li><code>Tracert</code></li>
+<li><code>Lookup</code></li>
+<li><code>HTTP</code></li>
+<li><code>HTTPS</code></li>
+<li><code>Puertos</code></li>
+<li><code>SNMP</code></li>
+<li><code>SSH</code></li>
+</ul>
+<h3 id="uso-de-las-herramientas">Uso de las herramientas</h3>
+<h4 id="ping">Ping</h4>
+<ul>
+<li>valida disponibilidad básica</li>
+<li>permite verificar si el objetivo responde por red</li>
+<li>puede detenerse mediante el control de prueba activa</li>
+</ul>
+<h4 id="tracert">Tracert</h4>
+<ul>
+<li>permite revisar ruta de red</li>
+<li>útil para detectar saltos o pérdidas</li>
+</ul>
+<h4 id="lookup">Lookup</h4>
+<ul>
+<li>resuelve DNS y ayuda a validar nombres de host</li>
+</ul>
+<h4 id="http--https">HTTP / HTTPS</h4>
+<ul>
+<li>valida servicios web</li>
+<li>muestra respuesta y tiempos</li>
+<li>utiliza la política TLS configurada en administración</li>
+</ul>
+<h4 id="puertos">Puertos</h4>
+<ul>
+<li>comprueba puertos específicos sin desbordar el host</li>
+<li>recomendado para <code>80</code>, <code>443</code>, <code>554</code>, <code>22</code>, <code>161</code> y puertos propios de NVR o fabricantes</li>
+</ul>
+<h4 id="snmp">SNMP</h4>
+<ul>
+<li>consulta información estándar del equipo</li>
+<li>útil para switches, routers, impresoras, UPS y algunos equipos embebidos</li>
+</ul>
+<h4 id="ssh">SSH</h4>
+<ul>
+<li>permite ejecutar un comando de consulta remota</li>
+<li>respeta la política de validación de host key configurada</li>
+</ul>
+<h3 id="otras-%C3%A1reas-de-red-e-instalaciones">Otras áreas de Red e Instalaciones</h3>
+<ul>
+<li><code>Auditoría Técnica</code></li>
+<li><code>Inventario ARP</code></li>
+<li><code>Sesiones de Red</code></li>
+</ul>
+<p>Estas áreas ayudan a complementar análisis operativo desde el host Sentinel.</p>
+<h2 id="92-estado-del-puesto">9.2 Estado del Puesto</h2>
+<p>Aquí se supervisa el equipo donde corre Sentinel.</p>
+<h3 id="resumen-del-host">Resumen del Host</h3>
+<p>Permite revisar:</p>
+<ul>
+<li>hostname</li>
+<li>IP local</li>
+<li>MAC</li>
+<li>gateway</li>
+<li>DNS</li>
+</ul>
+<h3 id="recuperaci%C3%B3n-t%C3%A9cnica">Recuperación Técnica</h3>
+<p>Incluye acciones como:</p>
+<ul>
+<li>limpiar DNS</li>
+<li>renovar IP</li>
+<li>liberar IP</li>
+</ul>
+<p>Estas acciones afectan el equipo local, no el remoto.</p>
+<h3 id="servicios-del-sistema">Servicios del Sistema</h3>
+<p>Permite revisar servicios locales relevantes para la operación del host Sentinel.</p>
+<hr>
+<h2 id="10-administraci%C3%B3n">10. Administración</h2>
+<p>Este módulo centraliza la configuración global de la plataforma.</p>
+<h3 id="qu%C3%A9-suele-administrarse-aqu%C3%AD">Qué suele administrarse aquí</h3>
+<ul>
+<li>usuarios y roles</li>
+<li>parámetros de operación</li>
+<li>comportamiento de cámaras</li>
+<li>políticas TLS</li>
+<li>geolocalización externa para traceroute</li>
+<li>modo SSH</li>
+<li>límite de streams simultáneos</li>
+<li>estado de licencia</li>
+</ul>
+<h2 id="101-usuarios">10.1 Usuarios</h2>
+<p>El administrador puede:</p>
+<ul>
+<li>crear usuarios</li>
+<li>definir roles</li>
+<li>bloquear o revisar acceso según política interna</li>
+</ul>
+<h2 id="102-licencia">10.2 Licencia</h2>
+<p>Aquí se puede revisar:</p>
+<ul>
+<li>edición</li>
+<li>tipo de licencia</li>
+<li>vigencia</li>
+<li>serial parcial o identificador</li>
+<li>estado general de activación</li>
+</ul>
+<h2 id="103-seguridad-de-red">10.3 Seguridad de red</h2>
+<h3 id="modo-tls-estricto">Modo TLS estricto</h3>
+<p>Si está activo:</p>
+<ul>
+<li>Sentinel valida certificados HTTPS/TLS</li>
+</ul>
+<p>Si está desactivado:</p>
+<ul>
+<li>permite conectarse a equipos con certificados autofirmados o legacy</li>
+</ul>
+<p>Uso recomendado:</p>
+<ul>
+<li><code>activo</code> en entornos corporativos</li>
+<li><code>flexible</code> solo cuando la operación técnica lo necesite</li>
+</ul>
+<h3 id="geolocalizaci%C3%B3n-externa">Geolocalización externa</h3>
+<p>Puede habilitarse o dejarse desactivada.</p>
+<p>Recomendación:</p>
+<ul>
+<li>dejarla desactivada por defecto</li>
+<li>activarla solo si aporta valor operativo concreto</li>
+</ul>
+<h3 id="pol%C3%ADtica-ssh">Política SSH</h3>
+<p>Puede operar en:</p>
+<ul>
+<li><code>estricto</code></li>
+<li><code>TOFU</code></li>
+<li><code>sin validación</code></li>
+</ul>
+<p>Recomendación:</p>
+<ul>
+<li>usar <code>estricto</code> como estándar</li>
+<li>usar <code>TOFU</code> en despliegues controlados</li>
+<li>evitar <code>sin validación</code> salvo laboratorios o pruebas muy puntuales</li>
+</ul>
+<h3 id="l%C3%ADmite-de-streams-simult%C3%A1neos">Límite de streams simultáneos</h3>
+<p>Este valor debe ajustarse según capacidad del host.</p>
+<p>Recomendación:</p>
+<ul>
+<li>partir con valores bajos</li>
+<li>subir gradualmente según estabilidad real del equipo</li>
+</ul>
+<hr>
+<h2 id="11-telegram-y-alertas">11. Telegram y alertas</h2>
+<p>Si la edición o la configuración interna lo habilitan, la app puede trabajar con Telegram.</p>
+<p>Buenas prácticas:</p>
+<ul>
+<li>usar bot dedicado</li>
+<li>proteger token y chat ID</li>
+<li>probar primero manualmente</li>
+<li>evitar reutilizar credenciales fuera del entorno autorizado</li>
+</ul>
+<hr>
+<h2 id="12-generaci%C3%B3n-de-reportes-pdf">12. Generación de reportes PDF</h2>
+<p>Sentinel puede generar reportes formales con:</p>
+<ul>
+<li>branding corporativo</li>
+<li>resumen operacional</li>
+<li>tabla profesional de equipos</li>
+<li>gráficos históricos más grandes</li>
+<li>capacidades operativas actuales del producto</li>
+</ul>
+<h3 id="cu%C3%A1ndo-generarlos">Cuándo generarlos</h3>
+<ul>
+<li>cierres periódicos</li>
+<li>revisión gerencial</li>
+<li>soporte a cliente</li>
+<li>evidencia operativa</li>
+<li>análisis posterior a incidentes</li>
+</ul>
+<hr>
+<h2 id="13-buenas-pr%C3%A1cticas-de-operaci%C3%B3n">13. Buenas prácticas de operación</h2>
+<ul>
+<li>use nombres consistentes por instalación</li>
+<li>documente comunidad SNMP, puertos y accesos de forma separada y segura</li>
+<li>no habilite funciones avanzadas sin necesidad real</li>
+<li>mantenga el host Sentinel con horario correcto</li>
+<li>controle el número de streams simultáneos</li>
+<li>mantenga actualizada la licencia y el inventario de equipos</li>
+</ul>
+<hr>
+<h2 id="14-buenas-pr%C3%A1cticas-de-ciberseguridad">14. Buenas prácticas de ciberseguridad</h2>
+<ul>
+<li>mantener TLS estricto cuando sea posible</li>
+<li>evitar guardar credenciales fuera del sistema</li>
+<li>usar validación SSH estricta o TOFU</li>
+<li>no compartir seriales entre instalaciones</li>
+<li>proteger respaldos y reportes si contienen información sensible</li>
+<li>limitar el acceso al módulo de administración</li>
+</ul>
+<hr>
+<h2 id="15-flujo-recomendado-de-puesta-en-marcha">15. Flujo recomendado de puesta en marcha</h2>
+<ol>
+<li>Instalar Sentinel con serial válido.</li>
+<li>Activar y crear usuario administrador.</li>
+<li>Definir política TLS y SSH.</li>
+<li>Cargar equipos monitoreados.</li>
+<li>Probar diagnóstico básico.</li>
+<li>Configurar perfiles de cámaras.</li>
+<li>Ajustar límite de streams.</li>
+<li>Revisar historial.</li>
+<li>Generar reporte inicial.</li>
+<li>Dejar operación estable y documentada.</li>
+</ol>
+<hr>
+<h2 id="16-soluci%C3%B3n-r%C3%A1pida-de-problemas">16. Solución rápida de problemas</h2>
+<h3 id="el-equipo-responde-ping-pero-el-servicio-no">El equipo responde ping, pero el servicio no</h3>
+<p>Use:</p>
+<ul>
+<li><code>HTTP/HTTPS</code></li>
+<li><code>Puertos</code></li>
+<li><code>SNMP</code></li>
+<li><code>SSH</code></li>
+</ul>
+<h3 id="la-c%C3%A1mara-responde-por-ip-pero-no-muestra-imagen">La cámara responde por IP, pero no muestra imagen</h3>
+<p>Revise:</p>
+<ul>
+<li>URL snapshot</li>
+<li>URL RTSP</li>
+<li>puerto <code>554</code></li>
+<li>credenciales</li>
+<li>límite de streams</li>
+</ul>
+<h3 id="el-chequeo-https-falla">El chequeo HTTPS falla</h3>
+<p>Revise:</p>
+<ul>
+<li>certificado</li>
+<li>política TLS configurada</li>
+<li>endpoint real</li>
+</ul>
+<h3 id="el-ssh-no-conecta">El SSH no conecta</h3>
+<p>Revise:</p>
+<ul>
+<li>usuario y contraseña</li>
+<li>puerto</li>
+<li>host key</li>
+<li>modo <code>estricto</code> o <code>TOFU</code></li>
+</ul>
+<h3 id="el-rendimiento-visual-cae">El rendimiento visual cae</h3>
+<p>Revise:</p>
+<ul>
+<li>cantidad de cámaras activas</li>
+<li>cantidad de streams simultáneos</li>
+<li>perfil del host</li>
+</ul>
+<hr>
+<h2 id="17-alcance-de-la-edici%C3%B3n-pro">17. Alcance de la edición Pro</h2>
+<p>La edición <code>Pro</code> representa la experiencia más completa del producto, integrando:</p>
+<ul>
+<li>monitoreo operativo</li>
+<li>historial</li>
+<li>diagnósticos avanzados</li>
+<li>soporte técnico</li>
+<li>supervisión visual</li>
+<li>reportes formales</li>
+<li>licenciamiento profesional</li>
+</ul>
+<p>Es la edición recomendada para operación interna avanzada y para oferta comercial de mayor valor.</p>
+<hr>
+<h2 id="18-cierre">18. Cierre</h2>
+<p>Anvic Network Sentinel debe operarse como plataforma de monitoreo y soporte técnico con criterio profesional. La estabilidad final dependerá no solo del software, sino también de:</p>
+<ul>
+<li>la calidad del host</li>
+<li>la red disponible</li>
+<li>la configuración de cámaras y equipos</li>
+<li>la política de seguridad aplicada</li>
+</ul>
+<p>Usado correctamente, permite supervisar instalaciones, acelerar diagnóstico y respaldar servicios de continuidad operacional.</p>
+<hr>
+<p><strong>Producto:</strong> Anvic Network Sentinel
+<strong>Versión de referencia:</strong> 2.2
+<strong>Manual actualizado:</strong> Marzo 2026</p>
+
+</body>
+</html>

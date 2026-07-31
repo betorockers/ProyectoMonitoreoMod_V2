@@ -1,0 +1,19 @@
+# ping_logic.py
+
+import subprocess
+import platform
+import time
+
+def ping_ip(ip, monitor):
+    param = '-n' if platform.system().lower() == 'windows' else '-c'
+
+    while True:
+        try:
+            command = ['ping', param, '1', ip]
+            output = subprocess.run(command, capture_output=True, text=True, timeout=5)
+            status = "Conectado" if output.returncode == 0 else "Desconectado"
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            status = "Desconectado"
+            
+        monitor.update_status(status)
+        time.sleep(2)
