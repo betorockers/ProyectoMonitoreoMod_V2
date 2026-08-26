@@ -1,6 +1,6 @@
-# monitor.py
+﻿# monitor.py
 """
-Módulo Principal de Anvic Network Sentinel (V2.2.2).
+Módulo Principal de Anvic Network Sentinel (V2.2.3).
 
 Contiene la interfaz gráfica principal basada en CustomTkinter, así como la orquestación 
 de los módulos de autenticación, monitoreo de red (threading de Pings), configuración segura, 
@@ -525,7 +525,7 @@ class IPMonitor(customtkinter.CTkFrame):
         super().__init__(
             master,
             corner_radius=10,
-            fg_color="#2B2B2B",
+            fg_color="#2.2.3B",
             border_width=2,
             border_color="#555555",
         )
@@ -2337,7 +2337,7 @@ class App(customtkinter.CTk):
         self.graficos_frame.pack(fill="both", expand=True, padx=10, pady=10)
 
         self.frame_latencia = customtkinter.CTkFrame(
-            self.graficos_frame, fg_color="#2B2B2B"
+            self.graficos_frame, fg_color="#2.2.3B"
         )
         self.frame_latencia.pack(fill="both", expand=True, pady=5)
         customtkinter.CTkLabel(
@@ -2347,9 +2347,9 @@ class App(customtkinter.CTk):
         ).pack(pady=2)
 
         # Ajustar tamaño de figura para ser más responsiva
-        self.fig_latencia = Figure(figsize=(8, 3), facecolor="#2B2B2B", dpi=100)
+        self.fig_latencia = Figure(figsize=(8, 3), facecolor="#2.2.3B", dpi=100)
         self.ax_latencia = self.fig_latencia.add_subplot(111)
-        self.ax_latencia.set_facecolor("#2B2B2B")
+        self.ax_latencia.set_facecolor("#2.2.3B")
         self.ax_latencia.tick_params(colors="white", labelsize=8)
         self.fig_latencia.tight_layout()
 
@@ -2375,7 +2375,7 @@ class App(customtkinter.CTk):
 
         # Mejora 1.5: Heatmap de Disponibilidad
         self.frame_heatmap = customtkinter.CTkFrame(
-            self.graficos_frame, fg_color="#2B2B2B"
+            self.graficos_frame, fg_color="#2.2.3B"
         )
         self.frame_heatmap.pack(fill="both", expand=True, pady=5)
         customtkinter.CTkLabel(
@@ -2384,9 +2384,9 @@ class App(customtkinter.CTk):
             font=("Arial", 16, "bold"),
         ).pack(pady=2)
 
-        self.fig_heatmap = Figure(figsize=(8, 2.5), facecolor="#2B2B2B", dpi=100)
+        self.fig_heatmap = Figure(figsize=(8, 2.5), facecolor="#2.2.3B", dpi=100)
         self.ax_heatmap = self.fig_heatmap.add_subplot(111)
-        self.ax_heatmap.set_facecolor("#2B2B2B")
+        self.ax_heatmap.set_facecolor("#2.2.3B")
         self.fig_heatmap.subplots_adjust(left=0.25, bottom=0.2)
         self.fig_heatmap.tight_layout()
 
@@ -2396,7 +2396,7 @@ class App(customtkinter.CTk):
         )
 
         self.frame_tabla = customtkinter.CTkFrame(
-            self.graficos_frame, fg_color="#2B2B2B"
+            self.graficos_frame, fg_color="#2.2.3B"
         )
         self.frame_tabla.pack(fill="both", expand=True, pady=5)
         customtkinter.CTkLabel(
@@ -2429,7 +2429,7 @@ class App(customtkinter.CTk):
             return
 
         self.ax_latencia.clear()
-        self.ax_latencia.set_facecolor("#2B2B2B")
+        self.ax_latencia.set_facecolor("#2.2.3B")
         self.ax_latencia.grid(True, alpha=0.2, color="#555")
         self.ax_latencia.tick_params(colors="white", labelsize=8)
         colores = ["#00d9ff", "#ff6b6b", "#51cf66", "#ffd43b", "#ff6b9d", "#9775fa"]
@@ -2461,7 +2461,7 @@ class App(customtkinter.CTk):
 
         # Mejora 1.5: Lógica del Heatmap
         self.ax_heatmap.clear()
-        self.ax_heatmap.set_facecolor("#2B2B2B")
+        self.ax_heatmap.set_facecolor("#2.2.3B")
 
         heatmap_data = []
         labels_heatmap = []
@@ -2511,7 +2511,7 @@ class App(customtkinter.CTk):
             row = i // 5
             col = i % 5
 
-            g_frame = customtkinter.CTkFrame(self.gauges_container, fg_color="#2B2B2B")
+            g_frame = customtkinter.CTkFrame(self.gauges_container, fg_color="#2.2.3B")
             g_frame.grid(row=row, column=col, padx=5, pady=5, sticky="nsew")
 
             color = (
@@ -2524,7 +2524,7 @@ class App(customtkinter.CTk):
                 g_frame,
                 width=canvas_w,
                 height=canvas_h,
-                bg="#2B2B2B",
+                bg="#2.2.3B",
                 highlightthickness=0,
             )
             canvas.pack(pady=2)

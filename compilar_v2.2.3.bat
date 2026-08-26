@@ -1,9 +1,9 @@
-@echo off
-title Compilacion Anvic Network Sentinel v2.2.2
+﻿@echo off
+title Compilacion Anvic Network Sentinel v2.2.3
 color 0B
 echo =========================================================
 echo       ANVIC NETWORK SENTINEL - HERRAMIENTA DE BUILD
-echo                     VERSION 2.2.2
+echo                     VERSION 2.2.3
 echo =========================================================
 echo.
 echo Este proceso ejecutara los siguientes pasos:
@@ -63,7 +63,7 @@ if %errorlevel% neq 0 (
     echo  Revise la salida anterior para mas detalles.
 ) else (
     color 0A
-    echo  COMPILACION v2.2.2 FINALIZADA CON EXITO.
+    echo  COMPILACION v2.2.3 FINALIZADA CON EXITO.
     echo  El instalador se encuentra en la carpeta: Output\
 )
 echo =========================================================

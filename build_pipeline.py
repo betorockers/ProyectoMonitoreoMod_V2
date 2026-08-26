@@ -1,4 +1,4 @@
-import os
+﻿import os
 import subprocess
 import sys
 import time
@@ -16,7 +16,7 @@ TARGET_FILES = [
 
 # ── Configuracion de firma ─────────────────────────────────────────────────
 CERT_SCRIPT   = r"E:\Certificados\firmar_anvic.ps1"
-INSTALLER_OUT = r"e:\AnvicNetworkMonitorV2.1\Output\Instalador_Anvic_Network_Sentinel_v2.2.2.exe"
+INSTALLER_OUT = r"e:\AnvicNetworkMonitorV2.1\Output\Instalador_Anvic_Network_Sentinel_v2.2.3.exe"
 DIST_EXE      = r"e:\AnvicNetworkMonitorV2.1\dist\AnvicNetworkSentinel.exe"
 
 # Servidores de timestamp RFC 3161 (se prueba en orden)
@@ -106,7 +106,7 @@ def sign_file(filepath, signtool, cert_name="Anvic Network Sentinel"):
 
 def main():
     print("\n" + "="*60)
-    print("  ANVIC NETWORK SENTINEL v2.2.2 — BUILD PIPELINE")
+    print("  ANVIC NETWORK SENTINEL v2.2.3 — BUILD PIPELINE")
     print("="*60 + "\n")
 
     print("=== PASO 1: Transpilacion Cython ===")
@@ -162,7 +162,7 @@ def main():
         print(f"[WARN] No se pudo verificar: {e}")
 
     print("\n" + "="*60)
-    print("  COMPILACION v2.2.2 COMPLETADA EXITOSAMENTE")
+    print("  COMPILACION v2.2.3 COMPLETADA EXITOSAMENTE")
     print(f"  Instalador: {INSTALLER_OUT}")
     print("="*60 + "\n")
 

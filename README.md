@@ -1,4 +1,4 @@
-# 🛡️ Anvic Network Sentinel — v2.2.2
+﻿# 🛡️ Anvic Network Sentinel — v2.2.3
 
 > **Plataforma de supervisión técnica y visual para instalaciones conectadas**  
 > Desarrollado por **BetoGraf.inc** | Licencia Pro Perpetua  
@@ -13,10 +13,10 @@
 - [Servicios OSINT](#servicios-osint)
 - [Arquitectura de Archivos](#arquitectura-de-archivos)
 - [Configuración del Entorno](#configuración-del-entorno)
-- [Compilación y Empaquetado v2.2.2](#compilación-y-empaquetado-v222)
+- [Compilación y Empaquetado v2.2.3](#compilación-y-empaquetado-v222)
 - [Firma Digital](#firma-digital)
 - [Credenciales por Defecto](#credenciales-por-defecto)
-- [Changelog v2.2.2](#changelog-v222)
+- [Changelog v2.2.3](#changelog-v222)
 
 ---
 
@@ -79,7 +79,7 @@ AnvicNetworkMonitorV2.1/
 ├── monitor.py                     # App principal (LoginWindow, App, SetupWindow)
 ├── build_pipeline.py              # Pipeline de compilación: Cython → PyInstaller → Inno → Firma
 ├── build_cython.py                # Transpilación Cython de archivos sensibles
-├── compilar_v2.2.2.bat            # Script de build con limpieza de BD
+├── compilar_v2.2.3.bat            # Script de build con limpieza de BD
 ├── AnvicNetworkSentinel.spec      # Spec de PyInstaller
 ├── installer.iss                  # Script Inno Setup con firma Authenticode
 │
@@ -140,9 +140,9 @@ python main.py
 
 ---
 
-## Compilación y Empaquetado v2.2.2
+## Compilación y Empaquetado v2.2.3
 
-El proceso de build está completamente automatizado en `compilar_v2.2.2.bat`:
+El proceso de build está completamente automatizado en `compilar_v2.2.3.bat`:
 
 ```
 PASO 0: Limpieza de BD y datos de usuario (release virgen)
@@ -152,14 +152,14 @@ PASO 2–4: build_pipeline.py
   ├── PASO 2: Backup de .py originales
   ├── PASO 3: PyInstaller → dist/AnvicNetworkSentinel.exe
   ├── PASO 4: Restaurar .py originales
-  ├── PASO 5: Inno Setup → Output/Instalador_Anvic_Network_Sentinel_v2.2.2.exe
+  ├── PASO 5: Inno Setup → Output/Instalador_Anvic_Network_Sentinel_v2.2.3.exe
   ├── PASO 6: Firma digital SHA-256 (signtool.exe + timestamp DigiCert)
   └── PASO 7: Verificación de firma
 ```
 
 **Ejecutar build:**
 ```cmd
-compilar_v2.2.2.bat
+compilar_v2.2.3.bat
 ```
 
 > ⚠️ **IMPORTANTE**: Antes del primer build, ejecutar como Admin:  
@@ -207,7 +207,7 @@ Root CA (RSA-4096, SHA-256, 7 años)
 
 ---
 
-## Changelog v2.2.2
+## Changelog v2.2.3
 
 ### 🆕 Nuevas funcionalidades
 - **Botones OSINT con indicador activo**: el botón del servicio seleccionado cambia a cian `#00b4d8`
@@ -234,7 +234,7 @@ Root CA (RSA-4096, SHA-256, 7 años)
 - `installer.iss` configurado con `[SigningTool]` para firma automática Inno Setup
 
 ### 🗃️ Build limpio
-- `compilar_v2.2.2.bat` borra BD y configs antes de compilar (release virgen)
+- `compilar_v2.2.3.bat` borra BD y configs antes de compilar (release virgen)
 - `build_pipeline.py` actualizado a 7 pasos con firma y verificación integradas
 
 ---

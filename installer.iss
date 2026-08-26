@@ -1,11 +1,11 @@
-; Script de instalacion para Anvic Network Sentinel v2.2.2
+﻿; Script de instalacion para Anvic Network Sentinel v2.2.3
 ; Inno Setup moderno, per-user y con enfoque de menor friccion operativa.
 
 #ifndef MyAppName
   #define MyAppName "Anvic Network Sentinel"
 #endif
 #ifndef MyAppVersion
-  #define MyAppVersion "2.2.2"
+  #define MyAppVersion "2.2.3"
 #endif
 #ifndef MyAppPublisher
   #define MyAppPublisher "BetoGraf_inc"
@@ -26,7 +26,7 @@
   #define MyAppRegistryRoot "Software\\ANVIC\\AnvicNetworkSentinel"
 #endif
 #ifndef MyOutputBaseFilename
-  #define MyOutputBaseFilename "ANS_Setup_V2.2.2"
+  #define MyOutputBaseFilename "ANS_Setup_V2.2.3"
 #endif
 #ifndef MyAppId
   #define MyAppId "{{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}"
@@ -63,7 +63,7 @@ LZMANumBlockThreads=4
 SolidCompression=yes
 OutputDir=Output
 OutputBaseFilename={#MyOutputBaseFilename}
-VersionInfoVersion=2.2.2.0
+VersionInfoVersion=2.2.3.0
 VersionInfoCompany={#MyAppPublisher}
 VersionInfoDescription=Plataforma de supervision tecnica y visual para instalaciones conectadas
 VersionInfoProductName={#MyAppName}

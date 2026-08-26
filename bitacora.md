@@ -1,4 +1,4 @@
-# Bitácora del Proyecto
+﻿# Bitácora del Proyecto
 ## Anvic Network Sentinel v2.2.1
 
 ## Fecha de actualización
@@ -9,9 +9,9 @@ El proyecto se encuentra en **etapa de cierre técnico y release candidate comer
 
 ---
 
-## Resumen ejecutivo de avance (Cierre v2.2.2)
+## Resumen ejecutivo de avance (Cierre v2.2.3)
 
-Durante esta etapa de trabajo (v2.2.2), Anvic Network Sentinel perfeccionó su interfaz y su seguridad interna. Los principales focos fueron la robustez visual del módulo OSINT, la automatización del instalador (uninstaller) y el endurecimiento estricto del Control de Accesos Basado en Roles (RBAC).
+Durante esta etapa de trabajo (v2.2.3), Anvic Network Sentinel perfeccionó su interfaz y su seguridad interna. Los principales focos fueron la robustez visual del módulo OSINT, la automatización del instalador (uninstaller) y el endurecimiento estricto del Control de Accesos Basado en Roles (RBAC).
 
 Se trabajó sobre las siguientes áreas clave:
 
