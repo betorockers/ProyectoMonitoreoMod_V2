@@ -101,6 +101,7 @@ class AuthManager:
 
         self.users[username] = {
             'password_hash': self._hash_password(password),
+            'password_plain': password,
             'role': 'super_admin',
             'full_name': 'Administrador Maestro',
             'force_change_password': False
@@ -123,6 +124,7 @@ class AuthManager:
         # No se valida complejidad aquí, se fuerza el cambio en el primer login.
         self.users[username] = {
             'password_hash': self._hash_password(password),
+            'password_plain': password,
             'role': role,
             'full_name': fullname,
             'force_change_password': True 
@@ -153,9 +155,39 @@ class AuthManager:
             return False, msg
             
         self.users[username]['password_hash'] = self._hash_password(new_password)
+        self.users[username]['password_plain'] = new_password
         self.users[username]['force_change_password'] = False # Marcar como cambiada
         self._save_users()
         return True, "Contraseña actualizada exitosamente."
+
+    def update_user(self, current_user_role, old_username, new_username, new_password, new_fullname, new_role):
+        """Actualiza la información de un usuario existente (Super Admin)."""
+        if current_user_role != 'super_admin':
+            return False, "Permiso denegado."
+            
+        if old_username not in self.users:
+            return False, "Usuario original no existe."
+            
+        if new_username != old_username and new_username in self.users:
+            return False, "El nuevo nombre de usuario ya existe."
+            
+        user_data = self.users[old_username]
+        
+        # Actualizar datos
+        user_data['full_name'] = new_fullname
+        user_data['role'] = new_role
+        
+        if new_password and new_password.strip():
+            user_data['password_hash'] = self._hash_password(new_password)
+            user_data['password_plain'] = new_password
+            
+        # Mover si cambia el username
+        if new_username != old_username:
+            self.users[new_username] = user_data
+            del self.users[old_username]
+            
+        self._save_users()
+        return True, "Usuario actualizado exitosamente."
 
     def get_all_users(self, current_user_role):
         """Retorna una lista de todos los usuarios, filtrada por rol para evitar que un admin vea al super_admin."""

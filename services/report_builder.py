@@ -38,6 +38,7 @@ class ReportContext:
     tls_strict: bool
     cameras_count: int
     camera_max_streams: int
+    osint_data: dict | None = None
 
 
 def _status_color(status: str) -> str:
@@ -369,8 +370,66 @@ def build_network_report(ctx: ReportContext) -> str:
             )
         )
         elements.append(Spacer(1, 10))
+        elements.append(Spacer(1, 10))
         elements.extend(visuals)
         elements.append(Spacer(1, 10))
+
+    if ctx.osint_data:
+        elements.append(PageBreak())
+        elements.append(Paragraph("Análisis de Inteligencia y Amenazas (OSINT)", styles["section"]))
+        elements.append(Spacer(1, 4))
+        
+        for module_name, results in ctx.osint_data.items():
+            if not results:
+                continue
+            elements.append(Paragraph(f"Módulo: {module_name}", styles["subheader"]))
+            elements.append(Spacer(1, 4))
+            
+            table_data = []
+            # Tratar de inferir cabeceras basados en la longitud de las filas (al menos 3)
+            # En nuestro OSINT, la longitud puede variar pero sabemos que las 2 últimas son Riesgo e Impacto
+            ncols = len(results[0])
+            headers = ["Parámetro/Item"] * (ncols - 2) + ["Riesgo", "Impacto"] if ncols >= 2 else ["Dato"] * ncols
+            table_data.append([Paragraph(h, styles["table_header"]) for h in headers])
+            
+            table_style = TableStyle([
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1F2937")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("BOTTOMPADDING", (0, 0), (-1, 0), 8),
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#E2E8F0")),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ])
+            
+            for row_idx, res in enumerate(results, start=1):
+                row_cells = []
+                for val in res:
+                    val_str = str(val) if val is not None else ""
+                    row_cells.append(Paragraph(val_str, styles["table_cell"]))
+                table_data.append(row_cells)
+                
+                # Colorear celda de Riesgo si existe
+                if len(res) >= 2:
+                    riesgo_val = str(res[-2])
+                    bg_color = None
+                    if "🔴" in riesgo_val:
+                        bg_color = colors.HexColor("#FEE2E2")
+                    elif "🟡" in riesgo_val:
+                        bg_color = colors.HexColor("#FEF3C7")
+                    elif "🟢" in riesgo_val:
+                        bg_color = colors.HexColor("#DCFCE7")
+                    
+                    if bg_color:
+                        col_idx = len(res) - 2
+                        table_style.add("BACKGROUND", (col_idx, row_idx), (col_idx, row_idx), bg_color)
+                        
+            # Ajustar anchos equitativamente
+            col_width = (doc.width) / max(1, ncols)
+            t = Table(table_data, colWidths=[col_width] * ncols, hAlign="LEFT")
+            t.setStyle(table_style)
+            elements.append(t)
+            elements.append(Spacer(1, 10))
 
     elements.append(Paragraph("Notas de ciberseguridad y operacion", styles["section"]))
     elements.append(Spacer(1, 4))

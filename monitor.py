@@ -1,10 +1,23 @@
 # monitor.py
+"""
+Módulo Principal de Anvic Network Sentinel (V2.2.2).
+
+Contiene la interfaz gráfica principal basada en CustomTkinter, así como la orquestación 
+de los módulos de autenticación, monitoreo de red (threading de Pings), configuración segura, 
+y recolección de diagnósticos/OSINT.
+
+Características de este módulo:
+- Gestión del ciclo de vida de la aplicación y limpieza de procesos huérfanos (Zombies) al cierre.
+- Inicialización y configuración de UI, reportes en PDF y alertas en Telegram.
+- Manejo del estado central y almacenamiento de métricas en memoria/base de datos.
+"""
 
 import customtkinter
 import tkinter as tk
 import threading
-from ping_logic import ping_ip
+from core.ping_logic import start_async_ping_loop
 import time
+import queue
 import subprocess
 import platform
 import json
@@ -70,8 +83,10 @@ except ImportError as e:
     print(f"Error al importar ReportLab: {e}")
     REPORTLAB_AVAILABLE = False
 
-# Lista de equipos por defecto para recuperación o inicio limpio
-DEFAULT_EQUIPMENT = [
+import sys
+
+# Lista de equipos por defecto para desarrollo. En producción (compilado), estará vacía.
+_DEFAULT_EQUIPMENT_DEV = [
     {"ip": "10.88.6.58", "label": "Totem de Entrada Quilicura"},
     {"ip": "10.88.6.60", "label": "Totem de salida Quilicura"},
     {"ip": "10.88.6.57", "label": "LPR Quilicura Entrada"},
@@ -86,6 +101,8 @@ DEFAULT_EQUIPMENT = [
     {"ip": "8.8.8.8", "label": "Google DNS (Default)"},
     {"ip": "1.1.1.1", "label": "Cloudflare DNS (Default)"},
 ]
+
+DEFAULT_EQUIPMENT = [] if getattr(sys, 'frozen', False) else _DEFAULT_EQUIPMENT_DEV
 
 # --- GESTIÓN DE RUTAS PARA EJECUTABLE (PyInstaller) ---
 def get_base_path():
@@ -725,7 +742,55 @@ class App(customtkinter.CTk):
         # --- INICIALIZACIÓN DE AUDIO ROBUSTA ---
         self.audio_enabled = self._initialize_audio()
 
+        # --- FASE 2: MOTOR UI (COLAS Y ATAJOS) ---
+        self.ui_queue = queue.Queue()
+        self.process_ui_queue()
+        self.setup_global_keybindings()
+
         self.bootstrap_license_flow()
+
+    def setup_global_keybindings(self):
+        """Atajos globales de navegación y edición."""
+        self.bind_all("<Control-Tab>", self._next_tab)
+        self.bind_all("<Control-Shift-Tab>", self._prev_tab)
+        # Copiar y pegar universal en Windows
+        if platform.system() == "Windows":
+            self.bind_all("<Control-c>", lambda e: self.event_generate("<<Copy>>"))
+            self.bind_all("<Control-v>", lambda e: self.event_generate("<<Paste>>"))
+            self.bind_all("<Control-x>", lambda e: self.event_generate("<<Cut>>"))
+
+    def _next_tab(self, event=None):
+        if hasattr(self, 'tabview'):
+            tabs = self.tabview._tab_dict.keys()
+            tabs_list = list(tabs)
+            current = self.tabview.get()
+            if current in tabs_list:
+                idx = tabs_list.index(current)
+                next_idx = (idx + 1) % len(tabs_list)
+                self.tabview.set(tabs_list[next_idx])
+        return "break"
+
+    def _prev_tab(self, event=None):
+        if hasattr(self, 'tabview'):
+            tabs = self.tabview._tab_dict.keys()
+            tabs_list = list(tabs)
+            current = self.tabview.get()
+            if current in tabs_list:
+                idx = tabs_list.index(current)
+                prev_idx = (idx - 1) % len(tabs_list)
+                self.tabview.set(tabs_list[prev_idx])
+        return "break"
+
+    def process_ui_queue(self):
+        """Procesa lotes de eventos asíncronos para Tkinter (Throttling)"""
+        try:
+            for _ in range(50):  # Máximo 50 actualizaciones por ciclo (batching)
+                action, args, kwargs = self.ui_queue.get_nowait()
+                action(*args, **kwargs)
+        except queue.Empty:
+            pass
+        finally:
+            self.after(100, self.process_ui_queue)
 
     def _initialize_audio(self):
         """
@@ -1047,6 +1112,11 @@ class App(customtkinter.CTk):
     def on_closing(self):
         """Hard kill of the app and all background threads to avoid zombies"""
         import os
+        try:
+            from core.process_manager import ProcessManager
+            ProcessManager.cleanup()
+        except Exception as e:
+            print(f"Error en cleanup: {e}")
         os._exit(0)
 
     def show_login(self):
@@ -1056,6 +1126,10 @@ class App(customtkinter.CTk):
                 monitor._ping_thread_active = False
         
         if hasattr(self, 'video_vigilancia_controller'):
+            try:
+                self.video_vigilancia_controller.detener_stream()
+            except Exception:
+                pass
             self.video_vigilancia_controller.is_playing = False
             self.video_vigilancia_controller.is_recording = False
 
@@ -1296,7 +1370,9 @@ class App(customtkinter.CTk):
         self.logout_button.grid(row=15, column=0, padx=10, pady=10)
 
         # Restricciones de Rol
-        if self.current_user["role"] == "user":
+        role = self.current_user["role"]
+        
+        if role in ["user", "operador"]:
             self.add_button.configure(state="disabled")
             self.remove_button.configure(state="disabled")
             self.save_button.configure(state="disabled")
@@ -1311,6 +1387,10 @@ class App(customtkinter.CTk):
                 self.camera_max_streams_entry.configure(state="disabled")
                 self.camera_snapshot_interval_entry.configure(state="disabled")
                 self.verify_tls_switch.configure(state="disabled")
+
+        if role == "admin":
+            self.remove_button.configure(state="disabled")
+            self.remove_entry.configure(state="disabled")
 
         self.monitors = {}
         # Prioridad 1: Crear tarjetas e iniciar pings de inmediato
@@ -1382,7 +1462,8 @@ class App(customtkinter.CTk):
         self.create_user_button.grid(row=6, column=0, columnspan=2, pady=20)
 
         self.telegram_frame = customtkinter.CTkFrame(self.admin_scroll_frame)
-        self.telegram_frame.pack(fill="x", padx=20, pady=(0, 20))
+        if self.current_user["role"] == "super_admin":
+            self.telegram_frame.pack(fill="x", padx=20, pady=(0, 20))
 
         customtkinter.CTkLabel(
             self.telegram_frame,
@@ -1437,7 +1518,8 @@ class App(customtkinter.CTk):
         self.telegram_save_button.grid(row=6, column=0, columnspan=2, pady=12)
 
         self.camera_settings_frame = customtkinter.CTkFrame(self.admin_scroll_frame)
-        self.camera_settings_frame.pack(fill="x", padx=20, pady=(0, 20))
+        if self.current_user["role"] == "super_admin":
+            self.camera_settings_frame.pack(fill="x", padx=20, pady=(0, 20))
 
         customtkinter.CTkLabel(
             self.camera_settings_frame, text="Configuracion de Streaming", font=("Arial", 16, "bold")
@@ -1527,7 +1609,8 @@ class App(customtkinter.CTk):
         self.camera_settings_save_button.grid(row=10, column=0, columnspan=2, pady=15)
 
         self.license_frame = customtkinter.CTkFrame(self.admin_scroll_frame)
-        self.license_frame.pack(fill="x", padx=20, pady=(0, 20))
+        if self.current_user["role"] == "super_admin":
+            self.license_frame.pack(fill="x", padx=20, pady=(0, 20))
         self.license_frame.grid_columnconfigure(1, weight=1)
 
         customtkinter.CTkLabel(
@@ -1679,23 +1762,74 @@ class App(customtkinter.CTk):
 
         users = self.auth.get_all_users(self.current_user["role"])
         for i, user in enumerate(users):
-            user_info = f"{user['full_name']} ({user['username']}) - Rol: {user['role']}"
-            customtkinter.CTkLabel(self.user_list_frame, text=user_info).grid(
+            username = user["username"]
+            role = user["role"]
+            full_name = user.get("full_name", username)
+            pwd = user.get("password_plain", "********")
+
+            user_info = f"{full_name} ({username}) - Rol: {role}"
+            if self.current_user["role"] == "super_admin":
+                user_info += f" | Clave: {pwd}"
+
+            customtkinter.CTkLabel(self.user_list_frame, text=user_info, anchor="w").grid(
                 row=i, column=0, padx=10, pady=5, sticky="w"
             )
 
+            btn_frame = customtkinter.CTkFrame(self.user_list_frame, fg_color="transparent")
+            btn_frame.grid(row=i, column=1, padx=10, pady=5, sticky="e")
+
+            if self.current_user["role"] == "super_admin":
+                customtkinter.CTkButton(
+                    btn_frame, text="Editar", width=60,
+                    command=lambda u=user: self.editar_usuario_ui(u)
+                ).pack(side="left", padx=5)
+
             if (
                 self.current_user["role"] == "super_admin"
-                and user["username"] != self.current_user["username"]
+                and username != self.current_user["username"]
             ):
-                btn_delete = customtkinter.CTkButton(
-                    self.user_list_frame,
+                customtkinter.CTkButton(
+                    btn_frame,
                     text="Eliminar",
                     width=60,
                     fg_color="#ff6b6b",
-                    command=lambda u=user["username"]: self.eliminar_usuario(u),
-                )
-                btn_delete.grid(row=i, column=1, padx=10, pady=5)
+                    command=lambda u=username: self.eliminar_usuario(u),
+                ).pack(side="left", padx=5)
+
+    def editar_usuario_ui(self, user: dict) -> None:
+        win = customtkinter.CTkToplevel(self)
+        win.title(f"Editar Usuario: {user['username']}")
+        win.geometry("400x350")
+        win.attributes("-topmost", True)
+
+        customtkinter.CTkLabel(win, text="Nuevo Nombre Completo:").pack(pady=(10, 5))
+        fname_entry = customtkinter.CTkEntry(win, width=250)
+        fname_entry.insert(0, user.get("full_name", ""))
+        fname_entry.pack(pady=5)
+
+        customtkinter.CTkLabel(win, text="Nueva Contraseña:").pack(pady=(10, 5))
+        pwd_entry = customtkinter.CTkEntry(win, width=250)
+        pwd_entry.insert(0, user.get("password_plain", ""))
+        pwd_entry.pack(pady=5)
+
+        def save_edit():
+            new_fname = fname_entry.get().strip()
+            new_pwd = pwd_entry.get().strip()
+            if not new_fname or not new_pwd:
+                ToastNotification(self, "Error", "Campos incompletos", color="red")
+                return
+
+            success, msg = self.auth.update_user(
+                user["username"], new_pwd, new_fname, self.current_user["role"]
+            )
+            if success:
+                ToastNotification(self, "Éxito", "Usuario actualizado", color="green")
+                self.actualizar_lista_usuarios()
+                win.destroy()
+            else:
+                ToastNotification(self, "Error", msg, color="red")
+
+        customtkinter.CTkButton(win, text="Guardar Cambios", command=save_edit).pack(pady=20)
 
     def eliminar_usuario(self, username):
         success, message = self.auth.delete_user(username, self.current_user["role"])
@@ -1944,16 +2078,19 @@ class App(customtkinter.CTk):
 
             self.monitors[equipo["ip"]] = monitor
 
-            thread = threading.Thread(
-                target=ping_ip,
-                args=(equipo["ip"], monitor, self.ping_interval),
-            )
-            thread.start()
-
             col += 1
             if col >= max_cols:
                 col = 0
                 row += 1
+                
+        # --- FASE 4: Iniciar un único hilo que ejecuta el loop asíncrono de ping ---
+        if self.monitors:
+            thread = threading.Thread(
+                target=start_async_ping_loop,
+                args=(self.monitors, self.ui_queue, self.ping_interval, self),
+                daemon=True
+            )
+            thread.start()
 
     def agregar_equipo(self):
         ip = self.ip_entry.get()
@@ -2167,6 +2304,7 @@ class App(customtkinter.CTk):
                     tls_strict=bool(getattr(self, "verify_tls_certificates", False)),
                     cameras_count=len(getattr(self, "cameras_config", [])),
                     camera_max_streams=int(getattr(self, "camera_max_streams", 1)),
+                    osint_data=getattr(self, "osint_tab", None).module_results if hasattr(self, "osint_tab") else None,
                 )
             )
             ToastNotification(

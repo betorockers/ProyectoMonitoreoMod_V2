@@ -15,6 +15,14 @@ class MetricasHistoricas:
         db_path = os.path.join(get_base_path(), "anvic_monitor.db")
         self.conn = sqlite3.connect(db_path, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
+        
+        # --- FASE 3: OPTIMIZACIÓN DE BASE DE DATOS (WAL & BULK) ---
+        cursor = self.conn.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL;")
+        cursor.execute("PRAGMA synchronous=NORMAL;")
+        cursor.execute("PRAGMA temp_store=MEMORY;")
+        self.conn.commit()
+        
         self._crear_tablas()
 
     def _crear_tablas(self):

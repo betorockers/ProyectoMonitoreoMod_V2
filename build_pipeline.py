@@ -40,6 +40,7 @@ def restore_from_bak():
 
 def get_iscc_path():
     search_dirs = [
+        r'D:\Inno Setup 7',
         'C:\\Program Files (x86)',
         'C:\\Program Files',
         'C:\\Users\\BetoRock Toledo\\AppData\\Local\\Programs'
@@ -123,9 +124,15 @@ def main():
 
     print("\n=== PASO 5: Compilando instalador Inno Setup ===")
     iscc_path = get_iscc_path()
+    signtool_path = get_signtool_path()
     if iscc_path:
-        subprocess.run([iscc_path, r"e:\AnvicNetworkMonitorV2.1\installer.iss"], check=True)
-        print("[OK] Instalador generado.")
+        # Usamos $q para las comillas internas (ISCC las reemplaza por comillas reales)
+        sign_cmd = f'$q{signtool_path}$q sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 /n $qAnvic Network Sentinel$q /a $f'
+        
+        cmd_line = f'"{iscc_path}" "/SMySignTool={sign_cmd}" "e:\\AnvicNetworkMonitorV2.1\\installer.iss"'
+        print(f"Ejecutando ISCC: {cmd_line}")
+        subprocess.run(cmd_line, shell=True, check=True)
+        print("[OK] Instalador generado (y firmado internamente).")
     else:
         print("[ERROR] No se encontro ISCC.exe. Instala Inno Setup.")
         sys.exit(1)

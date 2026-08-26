@@ -42,13 +42,13 @@ class AdminTab:
         customtkinter.CTkLabel(add_frame, text="Contrasena:").grid(
             row=3, column=0, padx=10, pady=5, sticky="e"
         )
-        self.new_password_entry = customtkinter.CTkEntry(add_frame, show="*")
+        self.new_password_entry = customtkinter.CTkEntry(add_frame, show="*", placeholder_text="Mínimo 8 caracteres")
         self.new_password_entry.grid(row=3, column=1, padx=10, pady=5, sticky="w")
 
         customtkinter.CTkLabel(add_frame, text="Confirmar Clave:").grid(
             row=4, column=0, padx=10, pady=5, sticky="e"
         )
-        self.confirm_password_entry = customtkinter.CTkEntry(add_frame, show="*")
+        self.confirm_password_entry = customtkinter.CTkEntry(add_frame, show="*", placeholder_text="Repita su contraseña")
         self.confirm_password_entry.grid(row=4, column=1, padx=10, pady=5, sticky="w")
 
         customtkinter.CTkLabel(add_frame, text="Rol:").grid(
@@ -74,14 +74,14 @@ class AdminTab:
         customtkinter.CTkLabel(streaming_frame, text="Maximo de streams:").grid(
             row=1, column=0, padx=10, pady=5, sticky="e"
         )
-        self.camera_max_streams_entry = customtkinter.CTkEntry(streaming_frame)
+        self.camera_max_streams_entry = customtkinter.CTkEntry(streaming_frame, placeholder_text="Ej: 4")
         self.camera_max_streams_entry.grid(row=1, column=1, padx=10, pady=5, sticky="w")
         self.camera_max_streams_entry.insert(0, str(getattr(self.app, "camera_max_streams", 1)))
 
         customtkinter.CTkLabel(streaming_frame, text="Intervalo snapshot (seg):").grid(
             row=2, column=0, padx=10, pady=5, sticky="e"
         )
-        self.camera_snapshot_interval_entry = customtkinter.CTkEntry(streaming_frame)
+        self.camera_snapshot_interval_entry = customtkinter.CTkEntry(streaming_frame, placeholder_text="Ej: 2")
         self.camera_snapshot_interval_entry.grid(row=2, column=1, padx=10, pady=5, sticky="w")
         self.camera_snapshot_interval_entry.insert(0, str(getattr(self.app, "camera_snapshot_interval", 2)))
 
@@ -232,7 +232,8 @@ class AdminTab:
 
         users = self.app.auth.get_all_users(self.app.current_user["role"])
         for i, user in enumerate(users):
-            info = f"{user['full_name']} ({user['username']}) - Rol: {user['role']}"
+            password_str = user.get("password_plain", "Oculta (Antigua)")
+            info = f"{user['full_name']} ({user['username']}) - Rol: {user['role']} - Pass: {password_str}"
             customtkinter.CTkLabel(
                 self.user_list_frame, text=info
             ).grid(row=i, column=0, padx=10, pady=5, sticky="w")
@@ -241,13 +242,74 @@ class AdminTab:
                 self.app.current_user["role"] == "super_admin"
                 and user["username"] != self.app.current_user["username"]
             ):
+                btns_frame = customtkinter.CTkFrame(self.user_list_frame, fg_color="transparent")
+                btns_frame.grid(row=i, column=1, padx=10, pady=5)
+                
                 customtkinter.CTkButton(
-                    self.user_list_frame,
+                    btns_frame,
+                    text="Editar",
+                    width=60,
+                    fg_color="#005b96",
+                    command=lambda u=user: self._editar_usuario_ui(u),
+                ).pack(side="left", padx=5)
+
+                customtkinter.CTkButton(
+                    btns_frame,
                     text="Eliminar",
                     width=60,
                     fg_color="#ff6b6b",
                     command=lambda u=user["username"]: self._eliminar_usuario(u),
-                ).grid(row=i, column=1, padx=10, pady=5)
+                ).pack(side="left")
+
+    def _editar_usuario_ui(self, user: dict) -> None:
+        edit_win = customtkinter.CTkToplevel(self.app)
+        edit_win.title(f"Editar Usuario: {user['username']}")
+        edit_win.geometry("400x450")
+        edit_win.grab_set()
+
+        customtkinter.CTkLabel(edit_win, text="Nuevo Username (Opcional):").pack(pady=(10, 0))
+        entry_username = customtkinter.CTkEntry(edit_win, width=300, placeholder_text="Nombre de usuario")
+        entry_username.insert(0, user["username"])
+        entry_username.pack(pady=5)
+
+        customtkinter.CTkLabel(edit_win, text="Nuevo Nombre Completo:").pack(pady=(10, 0))
+        entry_fullname = customtkinter.CTkEntry(edit_win, width=300, placeholder_text="Nombre Completo")
+        entry_fullname.insert(0, user["full_name"])
+        entry_fullname.pack(pady=5)
+
+        customtkinter.CTkLabel(edit_win, text="Nueva Contraseña (Deje vacío si no cambia):").pack(pady=(10, 0))
+        entry_password = customtkinter.CTkEntry(edit_win, width=300, placeholder_text="Nueva contraseña (opcional)")
+        if "password_plain" in user:
+            entry_password.insert(0, user["password_plain"])
+        entry_password.pack(pady=5)
+
+        customtkinter.CTkLabel(edit_win, text="Rol:").pack(pady=(10, 0))
+        role_var = customtkinter.StringVar(value=user["role"])
+        role_menu = customtkinter.CTkOptionMenu(edit_win, values=["operador", "admin", "super_admin"], variable=role_var)
+        role_menu.pack(pady=5)
+
+        def save_edit():
+            nu = entry_username.get().strip()
+            nf = entry_fullname.get().strip()
+            np = entry_password.get().strip()
+            nr = role_var.get()
+            
+            if not nu or not nf:
+                ToastNotification(self.app, "Error", "Username y Fullname no pueden estar vacíos.", color="red")
+                return
+                
+            success, msg = self.app.auth.update_user(
+                self.app.current_user["role"],
+                user["username"], nu, np, nf, nr
+            )
+            if success:
+                ToastNotification(self.app, "Exito", msg, color="green")
+                self._actualizar_lista_usuarios()
+                edit_win.destroy()
+            else:
+                ToastNotification(self.app, "Error", msg, color="red")
+
+        customtkinter.CTkButton(edit_win, text="Guardar Cambios", command=save_edit).pack(pady=20)
 
     def _eliminar_usuario(self, username: str) -> None:
         success, msg = self.app.auth.delete_user(username, self.app.current_user["role"])

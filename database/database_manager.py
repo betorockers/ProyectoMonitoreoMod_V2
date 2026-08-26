@@ -17,6 +17,11 @@ class DatabaseManager:
     def __init__(self, db_name: str = DB_FILENAME):
         self.db_path = os.path.join(get_base_path(), db_name)
         self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
+        cursor = self.conn.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL;")
+        cursor.execute("PRAGMA synchronous=NORMAL;")
+        cursor.execute("PRAGMA temp_store=MEMORY;")
+        self.conn.commit()
         self._create_tables()
 
     def _create_tables(self) -> None:

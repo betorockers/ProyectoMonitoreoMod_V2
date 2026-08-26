@@ -14,8 +14,17 @@ class OsintTab:
         self.module_results = {}
         self.build_header()
         self.build_modules_grid()
+        self.apply_role_restrictions()
         self.build_search_and_results()
         
+    def apply_role_restrictions(self):
+        role = self.master_app.current_user.get("role", "user")
+        if role in ["user", "operador"]:
+            allowed_modules = ["PPU", "RUT"]
+            for code, btn in self._module_buttons.items():
+                if code not in allowed_modules:
+                    btn.configure(state="disabled", fg_color="#2a2d33", text_color="#5c6370")
+
     def build_header(self):
         header_frame = customtkinter.CTkFrame(self.parent, fg_color="transparent")
         header_frame.grid(row=0, column=0, sticky="ew", padx=20, pady=(20, 10))
@@ -201,111 +210,20 @@ class OsintTab:
         self.set_module("WHOIS")
 
     def _build_results_table(self, parent):
-        """Construye la tabla de resultados con estilo premium usando ttk.Treeview."""
-        # Frame contenedor de la tabla
-        table_outer = tk.Frame(parent, bg="#0d1117")
-        table_outer.grid(row=1, column=0, sticky="nsew", padx=16, pady=(0, 14))
-        table_outer.grid_rowconfigure(1, weight=1)
-        table_outer.grid_columnconfigure(0, weight=1)
-
-        # Separador decorativo
-        sep = tk.Frame(table_outer, bg="#21262d", height=1)
-        sep.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 0))
-
-        # Estilo ttk premium
-        style = ttk.Style()
-        style.theme_use("default")
-        style.configure(
-            "Premium.Treeview",
-            background="#0d1117",
-            foreground="#c9d1d9",
-            rowheight=34,
-            fieldbackground="#0d1117",
-            borderwidth=0,
-            font=("Consolas", 11)
+        """Construye la tabla de resultados usando CTkScrollableFrame para soportar saltos de linea y colores."""
+        self.results_container = customtkinter.CTkScrollableFrame(
+            parent, fg_color="#0d1117", corner_radius=0
         )
-        style.configure(
-            "Premium.Treeview.Heading",
-            background="#161b22",
-            foreground="#58a6ff",
-            relief="flat",
-            font=("Segoe UI", 11, "bold"),
-            padding=(10, 8)
-        )
-        style.map(
-            "Premium.Treeview",
-            background=[("selected", "#1f4d7a")],
-            foreground=[("selected", "#e6edf3")]
-        )
-        style.map(
-            "Premium.Treeview.Heading",
-            background=[("active", "#1c2128")]
-        )
-        style.layout("Premium.Treeview", [
-            ("Premium.Treeview.treearea", {"sticky": "nswe"})
-        ])
-
-        # ── Scrollbars elegantes oscuras ─────────────────────────────────
-        # Usamos tk.Scrollbar nativo para poder aplicar colores de forma directa
-        # sin depender del tema ttk que las pinta blancas en Windows.
-        scrollbar_style = ttk.Style()
-        for name in (
-            "Dark.Vertical.TScrollbar",
-            "Dark.Horizontal.TScrollbar",
-        ):
-            orient = "Vertical" if "Vertical" in name else "Horizontal"
-            scrollbar_style.configure(
-                name,
-                background="#21262d",
-                darkcolor="#21262d",
-                lightcolor="#21262d",
-                troughcolor="#0d1117",
-                bordercolor="#0d1117",
-                arrowcolor="#30363d",
-                relief="flat",
-            )
-            scrollbar_style.map(
-                name,
-                background=[("active", "#30363d"), ("pressed", "#388bfd")],
-                arrowcolor=[("active", "#58a6ff")],
-            )
-            scrollbar_style.layout(name, [
-                (f"{orient}.Scrollbar.trough", {"sticky": "nswe", "children": [
-                    (f"{orient}.Scrollbar.thumb", {"expand": "1", "sticky": "nswe"})
-                ]})
-            ])
-
-        self.tree = ttk.Treeview(
-            table_outer,
-            style="Premium.Treeview",
-            selectmode="browse"
-        )
-
-        v_scroll = ttk.Scrollbar(
-            table_outer,
-            orient="vertical",
-            command=self.tree.yview,
-            style="Dark.Vertical.TScrollbar"
-        )
-        h_scroll = ttk.Scrollbar(
-            table_outer,
-            orient="horizontal",
-            command=self.tree.xview,
-            style="Dark.Horizontal.TScrollbar"
-        )
-        self.tree.configure(yscrollcommand=v_scroll.set, xscrollcommand=h_scroll.set)
-
-        self.tree.grid(row=1, column=0, sticky="nsew")
-        v_scroll.grid(row=1, column=1, sticky="ns",  padx=(2, 0))
-        h_scroll.grid(row=2, column=0, sticky="ew",  pady=(2, 0))
-
-        # Colores alternos de filas
-        self.tree.tag_configure("odd",  background="#0d1117", foreground="#c9d1d9")
-        self.tree.tag_configure("even", background="#111820", foreground="#c9d1d9")
-        self.tree.tag_configure("error", background="#1f0a0a", foreground="#f85149")
-        self.tree.tag_configure("ok",   background="#0a1f0a", foreground="#3fb950")
-
-        self.tree.bind("<Control-c>", self.copy_to_clipboard)
+        self.results_container.grid(row=1, column=0, sticky="nsew", padx=16, pady=(0, 14))
+        
+        self.headers_frame = customtkinter.CTkFrame(self.results_container, fg_color="#161b22", corner_radius=0, height=40)
+        self.headers_frame.pack(fill="x", pady=(0, 5))
+        self.headers_frame.pack_propagate(False)
+        
+        self.rows_frame = customtkinter.CTkFrame(self.results_container, fg_color="transparent")
+        self.rows_frame.pack(fill="both", expand=True)
+        
+        self.tree = None # Para mantener compatibilidad con on_search_typing si es necesario
 
     def _on_entry_focus_in(self, event):
         """Oculta el placeholder al recibir foco."""
@@ -334,46 +252,55 @@ class OsintTab:
     def set_module(self, module_code):
         self.active_module = module_code
         self._set_active_button(module_code)  # ← Resaltar botón activo
+        
+        if module_code == "LAN":
+            self.btn_search.configure(text="  ESCANEAR")
+        else:
+            self.btn_search.configure(text="  BUSCAR")
 
         if module_code == "PPU":
-            cols   = ("Patente", "Tipo", "Marca", "Modelo", "RUT Propietario", "Nro. Motor", "Año", "Propietario")
-            widths = (90, 90, 100, 160, 130, 150, 60, 220)
+            cols   = ("Patente", "Tipo", "Marca", "Modelo", "RUT Propietario", "Nro. Motor", "Año", "Propietario", "Riesgo", "Impacto")
+            widths = (90, 80, 90, 140, 110, 120, 50, 200, 100, 220)
             placeholder = "Ingrese Patente del Vehículo  (ej. TYCC70)..."
         elif module_code == "RUT":
-            cols   = ("RUT", "Nombre Completo")
-            widths = (160, 590)
+            cols   = ("RUT", "Nombre Completo", "Riesgo", "Impacto")
+            widths = (160, 490, 100, 250)
             placeholder = "Ingrese RUT Chileno  (ej. 12.345.678-9)..."
         elif module_code == "GeoClima":
-            cols   = ("Ciudad / Región", "Indicador", "Valor")
-            widths = (180, 180, 390)
+            cols   = ("Ciudad / Región", "Indicador", "Valor", "Riesgo", "Impacto")
+            widths = (150, 150, 250, 100, 350)
             placeholder = "Ingrese ciudad o región  (ej. Santiago)..."
         elif module_code == "Email":
-            cols   = ("Email", "Campo", "Valor")
-            widths = (240, 200, 310)
+            cols   = ("Email", "Campo", "Valor", "Riesgo", "Impacto")
+            widths = (200, 150, 250, 120, 280)
             placeholder = "Ingrese dirección de correo electrónico..."
-        elif module_code in ("WHOIS", "Web", "Subdominios", "Reputacion", "LAN"):
-            cols   = ("Parámetro", "Valor", "Detalle")
-            widths = (170, 200, 380)
+        elif module_code in ("WHOIS", "Web", "Subdominios", "Reputacion"):
+            cols   = ("Parámetro", "Valor", "Detalle", "Riesgo", "Impacto")
+            widths = (150, 180, 320, 100, 250)
             placeholder = "Ingrese dominio o URL  (ej. anvic.cl)..."
+        elif module_code == "LAN":
+            cols   = ("Parámetro", "Valor", "Detalle", "Riesgo", "Impacto")
+            widths = (150, 180, 320, 100, 250)
+            placeholder = "Deje vacío para red local o ingrese subred (ej. 192.168.1.0/24)..."
         elif module_code in ("IPGeo", "DNS", "Infraestructura"):
-            cols   = ("Parámetro", "Valor", "Detalle")
-            widths = (170, 200, 380)
+            cols   = ("Parámetro", "Valor", "Detalle", "Riesgo", "Impacto")
+            widths = (150, 180, 320, 100, 250)
             placeholder = "Ingrese dirección IP o dominio..."
         elif module_code == "Puertos":
-            cols   = ("Puerto", "Estado", "Servicio")
-            widths = (100, 120, 530)
+            cols   = ("Puerto", "Estado", "Servicio", "Riesgo", "Impacto")
+            widths = (80, 100, 370, 100, 350)
             placeholder = "Ingrese IP o dominio objetivo..."
         elif module_code == "Traceroute":
-            cols   = ("Parámetro", "Valor", "Detalle")
-            widths = (170, 200, 380)
+            cols   = ("Parámetro", "Valor", "Detalle", "Riesgo", "Impacto")
+            widths = (150, 180, 320, 100, 250)
             placeholder = "Ingrese IP o dominio para traceroute..."
         elif module_code == "Fugas":
-            cols   = ("Parámetro", "Valor", "Detalle")
-            widths = (170, 200, 380)
+            cols   = ("Parámetro", "Valor", "Detalle", "Riesgo", "Impacto")
+            widths = (150, 180, 320, 100, 250)
             placeholder = "Ingrese email o dominio para buscar fugas..."
         else:
-            cols   = ("Parámetro", "Valor", "Detalle")
-            widths = (150, 250, 350)
+            cols   = ("Parámetro", "Valor", "Detalle", "Riesgo", "Impacto")
+            widths = (150, 180, 320, 100, 250)
             placeholder = "Ingrese parámetro de búsqueda..."
 
         # Actualizar placeholder label superpuesto
@@ -386,19 +313,56 @@ class OsintTab:
         self._placeholder_lbl.grid()
         self._placeholder_visible = True
 
-        # Reconfigurar columnas de la tabla
-        self.tree["columns"] = cols
-        self.tree["show"] = "headings"
+        # Reconfigurar columnas de la cabecera
+        for widget in self.headers_frame.winfo_children():
+            widget.destroy()
+        
+        self._current_widths = widths
+        
         for i, col in enumerate(cols):
-            self.tree.heading(col, text=f"  {col}", anchor="w")
-            self.tree.column(col, width=widths[i], anchor="w", stretch=(i == len(cols) - 1))
+            lbl = customtkinter.CTkLabel(
+                self.headers_frame, text=col, font=("Segoe UI", 12, "bold"), text_color="#58a6ff", anchor="w"
+            )
+            lbl.pack(side="left", padx=10, fill="x")
+            lbl.configure(width=widths[i])
 
         # Limpiar tabla y cargar caché del módulo
-        for item in self.tree.get_children():
-            self.tree.delete(item)
-        for idx, res in enumerate(self.module_results.get(module_code, [])):
-            tag = "even" if idx % 2 == 0 else "odd"
-            self.tree.insert("", "end", values=res, tags=(tag,))
+        for widget in self.rows_frame.winfo_children():
+            widget.destroy()
+            
+        cached = self.module_results.get(module_code, [])
+        self._render_rows(cached)
+
+    def _render_rows(self, results):
+        for idx, res in enumerate(results):
+            bg_color = "#0d1117" if idx % 2 == 0 else "#111820"
+            row_frame = customtkinter.CTkFrame(self.rows_frame, fg_color=bg_color, corner_radius=0)
+            row_frame.pack(fill="x", pady=1)
+            
+            for i, val in enumerate(res):
+                width = self._current_widths[i] if i < len(self._current_widths) else 150
+                text_val = str(val)
+                text_color = "#c9d1d9"
+                
+                # Extraer circulos y aplicar colores a texto
+                if "SANO" in text_val or "🟢" in text_val:
+                    text_color = "#2ea043"
+                    text_val = text_val.replace("🟢", "●")
+                elif "PELIGROSO" in text_val or "🔴" in text_val:
+                    text_color = "#f85149"
+                    text_val = text_val.replace("🔴", "●")
+                elif "SOSPECHOSO" in text_val or "🟡" in text_val:
+                    text_color = "#d29922"
+                    text_val = text_val.replace("🟡", "●")
+                elif "Error" in text_val or "❌" in text_val or "⚠" in text_val:
+                    text_color = "#f85149"
+                    
+                lbl = customtkinter.CTkLabel(
+                    row_frame, text=text_val, font=("Consolas", 11), text_color=text_color,
+                    anchor="w", justify="left", wraplength=width - 10
+                )
+                lbl.pack(side="left", padx=10, fill="y", pady=5)
+                lbl.configure(width=width)
 
     def on_search_typing(self, *args):
         val = self.search_var.get()
@@ -426,30 +390,29 @@ class OsintTab:
                     pass
 
     def copy_to_clipboard(self, event=None):
-        selected_items = self.tree.selection()
-        if selected_items:
-            clipboard_text = ""
-            for item in selected_items:
-                values = self.tree.item(item, "values")
-                clipboard_text += "\t".join(map(str, values)) + "\n"
-            self.parent.clipboard_clear()
-            self.parent.clipboard_append(clipboard_text.strip())
-            if hasattr(self.master_app, "send_alert"):
-                self.master_app.send_alert("Copiado al portapapeles ✓", "green")
+        pass # To be implemented or omitted since it's a custom frame now
 
     def ejecutar_consulta(self):
         query = self.search_var.get().strip()
-        if not query or self._placeholder_visible:
+        
+        # Permitir consultas vacías si el módulo es Escáner LAN
+        if (not query or self._placeholder_visible) and self.active_module != "LAN":
             return
+            
+        if self._placeholder_visible:
+            self.search_var.set("")
+            query = ""
+            self._placeholder_lbl.grid_remove()
+            self._placeholder_visible = False
 
         # Indicador "Buscando..." en tabla
-        for item in self.tree.get_children():
-            self.tree.delete(item)
+        for widget in self.rows_frame.winfo_children():
+            widget.destroy()
 
-        # Determinar número de columnas para el placeholder de carga
-        ncols = len(self.tree["columns"])
-        loading_vals = ("⏳ Consultando...",) + ("",) * (ncols - 1)
-        self.tree.insert("", "end", values=loading_vals, tags=("even",))
+        loading_lbl = customtkinter.CTkLabel(
+            self.rows_frame, text="⏳ Consultando...", font=("Consolas", 12), text_color="#58a6ff"
+        )
+        loading_lbl.pack(pady=20)
 
         import threading
         threading.Thread(
@@ -457,6 +420,95 @@ class OsintTab:
             args=(self.active_module, query),
             daemon=True
         ).start()
+
+    def _evaluate_risk(self, module, row):
+        """Evalúa el riesgo de un resultado OSINT y retorna (semaforo, impacto)."""
+        semaforo = "[ ⚪ N/A ]"
+        impacto = "Sin análisis"
+        
+        if len(row) < 3:
+            return semaforo, impacto
+            
+        param = str(row[1]).lower()
+        valor = str(row[2]).lower()
+        
+        if "error" in param or "error" in valor or "timeout" in valor:
+            return "[ 🟡 SOSPECHOSO ]", "Fallo en la consulta. Posible bloqueo, caída del servicio o rate limit."
+            
+        if module == "Fugas":
+            if "sí" in valor or "filtrado" in param:
+                return "[ 🔴 PELIGROSO ]", "Credenciales comprometidas. Riesgo crítico de acceso no autorizado. Forzar rotación de contraseñas."
+            elif "no encontrado" in valor:
+                return "[ 🟢 SANO ]", "No se encontraron registros en brechas de datos conocidas."
+            else:
+                return "[ 🟡 SOSPECHOSO ]", "Brecha histórica detectada. Verificar si la contraseña fue cambiada."
+                
+        elif module == "Puertos":
+            puerto = str(row[0]).strip()
+            puertos_criticos = ["22", "23", "3389", "445", "139"]
+            puertos_web = ["80", "443", "8080", "8443"]
+            if puerto in puertos_criticos and "open" in valor:
+                return "[ 🔴 PELIGROSO ]", f"Puerto de gestión ({puerto}) expuesto. Vulnerable a ataques de fuerza bruta o ransomware."
+            elif puerto in puertos_web and "open" in valor:
+                if puerto == "80":
+                    return "[ 🟡 SOSPECHOSO ]", "Puerto HTTP abierto. Posible tráfico sin cifrar."
+                return "[ 🟢 SANO ]", "Puerto web estándar expuesto (Esperado)."
+            elif "closed" in valor or "filtered" in valor:
+                return "[ 🟢 SANO ]", "Puerto cerrado o protegido por firewall."
+                
+        elif module == "Email":
+            if param == "disposable" and "true" in valor:
+                return "[ 🔴 PELIGROSO ]", "Correo temporal/desechable detectado. Alto riesgo de fraude o cuenta falsa."
+            elif param == "format" and "false" in valor:
+                return "[ 🔴 PELIGROSO ]", "Formato de correo inválido."
+            elif param == "dns" and "false" in valor:
+                return "[ 🟡 SOSPECHOSO ]", "El dominio no tiene registros MX (no puede recibir correos)."
+            elif param == "dns" and "true" in valor:
+                return "[ 🟢 SANO ]", "Dominio válido con capacidad de recibir correos."
+                
+        elif module == "WHOIS":
+            if "creation date" in param or "created" in param:
+                import datetime
+                import re
+                match = re.search(r'\d{4}-\d{2}-\d{2}', valor)
+                if match:
+                    try:
+                        cdate = datetime.datetime.strptime(match.group(), "%Y-%m-%d")
+                        days = (datetime.datetime.now() - cdate).days
+                        if days < 30:
+                            return "[ 🔴 PELIGROSO ]", f"Dominio creado hace {days} días. Alto riesgo de ser infraestructura de phishing."
+                        elif days < 180:
+                            return "[ 🟡 SOSPECHOSO ]", f"Dominio relativamente nuevo ({days} días)."
+                        else:
+                            return "[ 🟢 SANO ]", "Dominio con antigüedad y reputación establecida."
+                    except:
+                        pass
+                        
+        elif module == "Reputacion":
+            if "dominio compartido" in param:
+                return "[ 🟡 SOSPECHOSO ]", "IP compartida con múltiples dominios. Posible hosting barato o comprometido."
+                
+        elif module == "Infraestructura":
+            if "asn" in param:
+                if "aws" in valor or "amazon" in valor or "digitalocean" in valor or "azure" in valor:
+                    return "[ 🟡 SOSPECHOSO ]", "IP pertenece a un proveedor Cloud. Común en despliegues de ataque (VPS)."
+                else:
+                    return "[ 🟢 SANO ]", "ASN válido."
+                    
+        elif module == "Analizador Web":
+            if "server" in param:
+                return "[ ⚪ INFO ]", f"Servidor detectado: {valor}"
+            elif "strict-transport-security" not in str(row).lower() and param == "headers":
+                return "[ 🟡 SOSPECHOSO ]", "Falta cabecera HSTS. Riesgo de downgrade a HTTP."
+                
+        elif module == "DNS":
+            return "[ 🟢 SANO ]", "Registro DNS válido encontrado."
+            
+        elif module == "LAN":
+            if "activo" in valor:
+                return "[ ⚪ INFO ]", "Host detectado activo en la red local."
+                
+        return "[ ⚪ INFO ]", "Dato nominal o informativo."
 
     def _fetch_api_data(self, module, query):
         import requests
@@ -506,20 +558,37 @@ class OsintTab:
                     except Exception as e2:
                         results.append((domain, "Error", str(e2)))
             elif module == "IPGeo":
-                # ipinfo.io: 50k req/mes gratis, sin key necesaria
-                r = requests.get(f"https://ipinfo.io/{query}/json", timeout=10,
-                                 headers={"Accept": "application/json"})
+                import socket
+                target_ip = query.strip()
+                if target_ip:
+                    try:
+                        # Si es un dominio, resolver a IP
+                        target_ip = socket.gethostbyname(target_ip)
+                        if target_ip != query.strip():
+                            results.append(("Host", "IP Resuelta", target_ip))
+                    except:
+                        pass
+                
+                url = f"https://ipinfo.io/{target_ip}/json" if target_ip else "https://ipinfo.io/json"
+                r = requests.get(url, timeout=10, headers={"Accept": "application/json"})
+                
                 if r.status_code == 200:
                     d = r.json()
-                    label_map = {
-                        "ip": "IP", "city": "Ciudad", "region": "Región",
-                        "country": "País", "loc": "Coordenadas",
-                        "org": "Organización / ASN", "postal": "Código Postal",
-                        "timezone": "Zona Horaria", "hostname": "Hostname"
-                    }
-                    for k, v in d.items():
-                        if k not in ("readme",) and isinstance(v, (str, int, float)):
-                            results.append((query, label_map.get(k, k), str(v)))
+                    if d.get("bogon"):
+                        results.append((target_ip, "Red Local", "La IP ingresada es privada o reservada (bogon)."))
+                    else:
+                        label_map = {
+                            "ip": "IP", "city": "Ciudad", "region": "Región",
+                            "country": "País", "loc": "Coordenadas",
+                            "org": "Organización / ASN", "postal": "Código Postal",
+                            "timezone": "Zona Horaria", "hostname": "Hostname",
+                            "anycast": "Anycast"
+                        }
+                        for k, v in d.items():
+                            if k not in ("readme", "bogon") and isinstance(v, (str, int, float, bool)):
+                                results.append((query or "Propia", label_map.get(k, k.capitalize()), str(v)))
+                else:
+                    results.append((query, "Error API", f"HTTP {r.status_code} - {r.text[:50]}"))
             elif module == "DNS":
                 r = requests.get(f"https://api.hackertarget.com/dnslookup/?q={query}", timeout=10)
                 lines = r.text.strip().split("\n")
@@ -655,22 +724,77 @@ class OsintTab:
                 if net:
                     cmd = "ping"
                     is_win = platform.system() == "Windows"
-                    for host in list(net.hosts())[:50]:  # Limitar a 50 hosts
+                    active_hosts = []
+                    
+                    # 1. Ping sweep rápido (multithreaded para no congelar 50s)
+                    import concurrent.futures
+                    
+                    def check_host(h):
+                        flags = ["-n", "1", "-w", "100"] if is_win else ["-c", "1", "-W", "1"]
                         try:
-                            flags = ["-n", "1", "-w", "200"] if is_win else ["-c", "1", "-W", "1"]
-                            proc = subprocess.run(
-                                [cmd] + flags + [str(host)],
-                                capture_output=True, timeout=3
-                            )
+                            # Ocultar ventana de cmd en Windows
+                            si = None
+                            if is_win:
+                                si = subprocess.STARTUPINFO()
+                                si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+                            proc = subprocess.run([cmd] + flags + [str(h)], capture_output=True, timeout=2, startupinfo=si)
                             if proc.returncode == 0:
-                                try:
-                                    hostname = socket.gethostbyaddr(str(host))[0]
-                                except Exception:
-                                    hostname = "Sin nombre"
-                                results.append((str(host), "ACTIVO ✓", hostname))
-                        except Exception:
+                                return str(h)
+                        except:
                             pass
-                    if not results or (len(results) == 1 and "escaneada" in str(results[0])):
+                        return None
+                        
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=30) as executor:
+                        # Escanear primeros 254 hosts reales
+                        hosts_to_scan = list(net.hosts())[:254]
+                        futures = [executor.submit(check_host, h) for h in hosts_to_scan]
+                        for f in concurrent.futures.as_completed(futures):
+                            if f.result():
+                                active_hosts.append(f.result())
+                                
+                    # 2. Obtener tabla ARP para MACs
+                    mac_table = {}
+                    try:
+                        si = None
+                        if is_win:
+                            si = subprocess.STARTUPINFO()
+                            si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+                        arp_proc = subprocess.run(["arp", "-a"], capture_output=True, text=True, startupinfo=si)
+                        import re
+                        for line in arp_proc.stdout.splitlines():
+                            parts = line.split()
+                            if len(parts) >= 2:
+                                ip_str = parts[0].strip()
+                                mac_str = parts[1].strip()
+                                if re.match(r'^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$', mac_str):
+                                    mac_table[ip_str] = mac_str
+                    except:
+                        pass
+                        
+                    # 3. Analizar puertos y armar resultados
+                    for host in active_hosts:
+                        mac = mac_table.get(host, "MAC oculta/desconocida")
+                        try:
+                            hostname = socket.gethostbyaddr(host)[0]
+                        except:
+                            hostname = "Sin nombre"
+                            
+                        # Port scan rápido
+                        open_ports = []
+                        for port in [80, 443, 445, 3389]:
+                            try:
+                                with socket.create_connection((host, port), timeout=0.2):
+                                    open_ports.append(str(port))
+                            except:
+                                pass
+                                
+                        detalle = f"MAC: {mac} | Hostname: {hostname}"
+                        if open_ports:
+                            detalle += f" | Puertos abiertos: {', '.join(open_ports)}"
+                            
+                        results.append((host, "ACTIVO ✓", detalle))
+                        
+                    if not active_hosts:
                         results.append((str(net), "Sin respuesta", "No se detectaron hosts activos en la subred"))
             elif module == "GeoClima":
                 r = requests.get(f"https://wttr.in/{query}?format=j1&lang=es", timeout=10)
@@ -690,26 +814,27 @@ class OsintTab:
                 data = scraper_ppu(query)
                 results.extend(data)
         except Exception as e:
-            results.append((f"❌ Error", str(e), ""))
+            results.append((query if query else "Consulta", "❌ Error", str(e)))
 
         if not results:
             results.append(("⚠ Sin resultados", "La consulta no devolvió información.", ""))
 
-        self.parent.after(0, self._update_tree, module, results)
+        processed_results = []
+        for row in results:
+            semaforo, impacto = self._evaluate_risk(module, row)
+            processed_results.append(tuple(list(row) + [semaforo, impacto]))
+            
+        self.parent.after(0, self._update_tree, module, processed_results)
 
     def _update_tree(self, module, results):
         self.module_results[module] = results
         if self.active_module != module:
             return
-        for item in self.tree.get_children():
-            self.tree.delete(item)
-        for idx, res in enumerate(results):
-            tag = "even" if idx % 2 == 0 else "odd"
-            # Detectar fila de error para colorearla en rojo
-            first = str(res[0]) if res else ""
-            if first.startswith("❌") or first.startswith("⚠"):
-                tag = "error"
-            self.tree.insert("", "end", values=res, tags=(tag,))
+            
+        for widget in self.rows_frame.winfo_children():
+            widget.destroy()
+            
+        self._render_rows(results)
 
         if hasattr(self.master_app, "send_alert"):
             self.master_app.send_alert(f"✓ Consulta {module} completada", "green")

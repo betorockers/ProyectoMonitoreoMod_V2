@@ -630,6 +630,7 @@ class App(customtkinter.CTk):
                     tls_strict=bool(getattr(self, "verify_tls_certificates", False)),
                     cameras_count=len(getattr(self, "cameras_config", [])),
                     camera_max_streams=int(getattr(self, "camera_max_streams", 1)),
+                    osint_data=getattr(self, "osint_tab", None).module_results if hasattr(self, "osint_tab") else None,
                 )
             )
             ToastNotification(self, "Reporte PDF", f"Generado: {filename}", color="green")

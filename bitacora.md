@@ -1,4 +1,4 @@
-﻿# Bitácora del Proyecto
+# Bitácora del Proyecto
 ## Anvic Network Sentinel v2.2.1
 
 ## Fecha de actualización
@@ -9,18 +9,18 @@ El proyecto se encuentra en **etapa de cierre técnico y release candidate comer
 
 ---
 
-## Resumen ejecutivo de avance
+## Resumen ejecutivo de avance (Cierre v2.2.2)
 
-Durante esta etapa de trabajo, Anvic Network Sentinel dejó de ser solo una evolución del monitor original de red y pasó a consolidarse como una plataforma de monitoreo técnico y visual con potencial comercial real para ANVIC.
+Durante esta etapa de trabajo (v2.2.2), Anvic Network Sentinel perfeccionó su interfaz y su seguridad interna. Los principales focos fueron la robustez visual del módulo OSINT, la automatización del instalador (uninstaller) y el endurecimiento estricto del Control de Accesos Basado en Roles (RBAC).
 
-Se trabajó sobre cinco frentes principales:
+Se trabajó sobre las siguientes áreas clave:
 
 1. consolidación de branding e identidad del producto
-2. ampliación funcional del monitoreo y diagnóstico
-3. incorporación de supervisión visual de cámaras
-4. endurecimiento de seguridad, build e instalador
-5. creación de documentación técnica, comercial y operativa
-6. integración final de notificaciones Telegram administrables
+2. ampliación funcional y reparación de UI (scroll, colores) en OSINT
+3. implementación de roles estrictos (admin, user, super_admin)
+4. automatización inteligente del módulo IPGeo y Escáner LAN
+5. endurecimiento de seguridad, firma local y renombrado de uninstaller
+6. creación y actualización del ancla de sesión para seguimiento continuo
 
 ---
 

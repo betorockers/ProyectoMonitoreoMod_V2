@@ -1,25 +1,17 @@
 # core/ping_logic.py
 """
-Motor de red de Argos Guard: ejecución de pings ICMP y resolución ARP.
+Motor de red de Argos Guard (ICMP Asíncrono optimizado).
+Utiliza icmplib para procesar múltiples pings en paralelo sin hilos masivos.
 """
 
-import subprocess
+import asyncio
 import platform
-import time
+import subprocess
 import re
-
-
-def _get_startupinfo():
-    """Retorna StartupInfo para ocultar ventanas de consola en Windows."""
-    if platform.system().lower() == "windows":
-        si = subprocess.STARTUPINFO()
-        si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-        return si
-    return None
-
+from icmplib import async_multiping
 
 def get_mac_address(ip: str) -> str:
-    """Busca la dirección MAC en la tabla ARP después de un ping exitoso."""
+    """Busca la dirección MAC en la tabla ARP."""
     clean_ip = ip.strip()
     clean_ip = re.sub(r"^https?://", "", clean_ip)
     clean_ip = clean_ip.split("/")[0].split(":")[0]
@@ -27,17 +19,20 @@ def get_mac_address(ip: str) -> str:
     if platform.system().lower() == "windows":
         arp_command = ["arp", "-a", clean_ip]
         mac_pattern = r"([a-fA-F0-9]{2}-[a-fA-F0-9]{2}-[a-fA-F0-9]{2}-[a-fA-F0-9]{2}-[a-fA-F0-9]{2}-[a-fA-F0-9]{2})"
+        si = subprocess.STARTUPINFO()
+        si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
     else:
         arp_command = ["arp", clean_ip]
         mac_pattern = r"([a-fA-F0-9]{2}:[a-fA-F0-9]{2}:[a-fA-F0-9]{2}:[a-fA-F0-9]{2}:[a-fA-F0-9]{2}:[a-fA-F0-9]{2})"
+        si = None
 
     try:
         result = subprocess.run(
             arp_command,
             capture_output=True,
             text=True,
-            timeout=5,
-            startupinfo=_get_startupinfo(),
+            timeout=2,
+            startupinfo=si,
         )
         match = re.search(mac_pattern, result.stdout, re.IGNORECASE)
         if match:
@@ -47,60 +42,56 @@ def get_mac_address(ip: str) -> str:
         return f"Error ARP: {e}"
 
 
-def ping_ip(ip: str, monitor, interval_sec: int) -> None:
+async def _async_ping_loop(monitors_dict, ui_queue, interval_sec: int, app_instance):
     """
-    Loop de monitoreo para una IP. Ejecuta en un hilo daemon.
-
-    Args:
-        ip: Dirección IP a monitorear.
-        monitor: Instancia de IPMonitor (ui.components.device_card).
-        interval_sec: Segundos entre cada ping.
+    Bucle asíncrono que hace multiping a todas las IPs simultáneamente.
     """
-    clean_ip = ip.strip()
-    clean_ip = re.sub(r"^https?://", "", clean_ip)
-    clean_ip = clean_ip.split("/")[0].split(":")[0]
-
-    param = "-n" if platform.system().lower() == "windows" else "-c"
-    timeout_param = "-w" if platform.system().lower() == "windows" else "-W"
-    command = ["ping", param, "1", timeout_param, "1000", clean_ip]
-    si = _get_startupinfo()
-
-    while getattr(monitor, "_ping_thread_active", True):
+    while getattr(app_instance, "services_started", True):
+        ips = list(monitors_dict.keys())
+        if not ips:
+            await asyncio.sleep(interval_sec)
+            continue
+        
         try:
-            result = subprocess.run(
-                command,
-                capture_output=True,
-                text=True,
-                timeout=2,
-                startupinfo=si,
+            # privileged=False on Windows attempts to use the ping binary 
+            # if not running as admin, which is safe and still concurrent in python.
+            # If admin, it uses raw sockets natively.
+            responses = await async_multiping(
+                ips, 
+                count=1, 
+                timeout=2, 
+                privileged=False
             )
-            success = result.returncode == 0
-        except subprocess.TimeoutExpired:
-            success = False
-        except Exception:
-            success = False
+            
+            for host in responses:
+                ip = host.address
+                success = host.is_alive
+                latencia = host.avg_rtt if success else None
+                new_status = "Conectado" if success else "Desconectado"
+                
+                # Fetch MAC if alive
+                mac_address = "No disponible"
+                if success:
+                    # MAC fetching is sync, we can offload to thread to not block async loop
+                    mac_address = await asyncio.to_thread(get_mac_address, ip)
+                
+                monitor = monitors_dict.get(ip)
+                if monitor:
+                    # Send update to UI queue
+                    ui_queue.put((monitor.update_status, (new_status, mac_address, latencia), {}))
+                    
+        except Exception as e:
+            print(f"[PingEngine] Error en multiping: {e}")
+            
+        await asyncio.sleep(interval_sec)
 
-        new_status = "Conectado" if success else "Desconectado"
-        mac_address = "No disponible"
-        latencia = None
-
-        if success:
-            mac_address = get_mac_address(ip)
-            try:
-                if platform.system().lower() == "windows":
-                    match = re.search(r"(?:time|tiempo)[=<]([\d.]+)", result.stdout, re.IGNORECASE)
-                else:
-                    match = re.search(r"time=([\d.]+)", result.stdout, re.IGNORECASE)
-                if match:
-                    latencia = float(match.group(1))
-            except Exception:  # FIX H-13: bare except → except Exception
-                pass
-
-        try:
-            monitor.update_status(new_status, mac_address, latencia)
-        except Exception:
-            break
-
-        if not getattr(monitor, "_ping_thread_active", True):
-            break
-        time.sleep(interval_sec)
+def start_async_ping_loop(monitors_dict, ui_queue, interval_sec, app_instance):
+    """
+    Inicia el bucle de eventos asíncrono en el hilo actual (debe ser un Thread dedicado).
+    """
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        loop.run_until_complete(_async_ping_loop(monitors_dict, ui_queue, interval_sec, app_instance))
+    finally:
+        loop.close()

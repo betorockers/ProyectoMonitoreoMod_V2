@@ -11,13 +11,13 @@
   #define MyAppPublisher "BetoGraf_inc"
 #endif
 #ifndef MyAppURL
-  #define MyAppURL "https://www.anvic.cl/"
+  #define MyAppURL "https://betograf.cl/"
 #endif
 #ifndef MyAppSupportURL
-  #define MyAppSupportURL "https://www.anvic.cl/servicios/"
+  #define MyAppSupportURL "https://betograf.cl/#contacto"
 #endif
 #ifndef MyAppUpdatesURL
-  #define MyAppUpdatesURL "https://www.anvic.cl/servicios/"
+  #define MyAppUpdatesURL "https://betograf.cl/#contacto"
 #endif
 #ifndef MyAppExeName
   #define MyAppExeName "AnvicNetworkSentinel.exe"
@@ -26,7 +26,7 @@
   #define MyAppRegistryRoot "Software\\ANVIC\\AnvicNetworkSentinel"
 #endif
 #ifndef MyOutputBaseFilename
-  #define MyOutputBaseFilename "Instalador_Anvic_Network_Sentinel_v2.2.2"
+  #define MyOutputBaseFilename "ANS_Setup_V2.2.2"
 #endif
 #ifndef MyAppId
   #define MyAppId "{{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}"
@@ -58,6 +58,7 @@ WizardImageFile=assets\img\logoAnvic.bmp
 WizardSmallImageFile=assets\img\logoAnvic.bmp
 WizardStyle=modern
 Compression=lzma2/ultra64
+SignTool=MySignTool
 LZMANumBlockThreads=4
 SolidCompression=yes
 OutputDir=Output
@@ -83,11 +84,11 @@ DisableDirPage=no
 ;
 ; signtool.exe debe estar en PATH (Windows SDK 10).
 ; Ruta tipica: C:\Program Files (x86)\Windows Kits\10\bin\10.0.XXXXX.0\x64\
-SignTool=anvicsign
-SignedUninstaller=yes
+; SignTool=anvicsign
+; SignedUninstaller=yes
 
-[SigningTool]
-anvicsign=signtool.exe sign /fd SHA256 /td SHA256 /tr http://timestamp.digicert.com /n "Anvic Network Sentinel" /a $f
+; [SigningTool]
+; anvicsign=signtool.exe sign /fd SHA256 /td SHA256 /tr http://timestamp.digicert.com /n "Anvic Network Sentinel" /a $f
 
 [Languages]
 Name: "spanish"; MessagesFile: "compiler:Languages\Spanish.isl"
@@ -123,7 +124,7 @@ Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall add rule name=""{
 Filename: "{app}\{#MyAppExeName}"; Description: "Abrir {#MyAppName}"; Flags: nowait postinstall skipifsilent
 
 [UninstallRun]
-Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""{#MyAppName}"" program=""{app}\{#MyAppExeName}"""; Flags: runhidden waituntilterminated
+Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""{#MyAppName}"" program=""{app}\{#MyAppExeName}"""; RunOnceId: "RemoveFirewallRule"; Flags: runhidden waituntilterminated
 
 [UninstallDelete]
 Type: files; Name: "{app}\users.json"
@@ -205,6 +206,14 @@ begin
     RegWriteStringValue(HKCU, '{#MyAppRegistryRoot}\Licensing', 'PendingSerial', Trim(LicensePage.Values[0]));
   end;
   #endif
+  if CurStep = ssPostInstall then
+  begin
+    if FileExists(ExpandConstant('{app}\unins000.exe')) then
+    begin
+      CopyFile(ExpandConstant('{app}\unins000.exe'), ExpandConstant('{app}\uninstaller.exe'), False);
+      CopyFile(ExpandConstant('{app}\unins000.dat'), ExpandConstant('{app}\uninstaller.dat'), False);
+    end;
+  end;
 end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
