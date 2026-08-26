@@ -11,7 +11,7 @@
   6. **Accesibilidad y UX:** Se incorporaron Placeholders descriptivos en todas las entradas y atajos de teclado globales (Ctrl+Tab, C, V, X) para una manipulación nativa más rápida.
 
 ## Tareas Pendientes para la Próxima Sesión
-- [ ] Compilación del ejecutable (PyInstaller) con las optimizaciones realizadas.
+- [x] Compilación del ejecutable (PyInstaller) con las optimizaciones realizadas.
 - [ ] Evaluación de nuevos componentes OSINT (en caso de que se determine que `scraper_rut` y `scraper_ppu` requieran rediseño bajo APIs más robustas).
 - [ ] Verificación en Entorno Real: Pruebas de campo conectando el servidor y monitoreando en la red física del cliente final.
 
