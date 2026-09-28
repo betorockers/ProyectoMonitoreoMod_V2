@@ -10,6 +10,12 @@ try:
 except ImportError:  # pragma: no cover
     win32crypt = None
 
+try:
+    from key_manager import _dpapi_protect, _dpapi_unprotect
+except ImportError:  # pragma: no cover
+    _dpapi_protect = None
+    _dpapi_unprotect = None
+
 from config.licensing import LICENSE_REGISTRY_ROOT
 
 
@@ -40,22 +46,35 @@ class LicenseStorage:
             return
 
     def _protect(self, raw: bytes) -> str:
-        if win32crypt is None:
-            return base64.b64encode(raw).decode("ascii")
-        protected = win32crypt.CryptProtectData(raw, None, None, None, None, 0)
-        return base64.b64encode(protected).decode("ascii")
+        if _dpapi_protect is not None:
+            try:
+                return base64.b64encode(_dpapi_protect(raw)).decode("ascii")
+            except Exception:
+                pass
+        if win32crypt is not None:
+            try:
+                protected = win32crypt.CryptProtectData(raw, None, None, None, None, 0)
+                return base64.b64encode(protected).decode("ascii")
+            except Exception:
+                pass
+        return base64.b64encode(raw).decode("ascii")
 
     def _unprotect(self, value: str) -> bytes | None:
         if not value:
             return None
         raw = base64.b64decode(value.encode("ascii"))
-        if win32crypt is None:
-            return raw
-        try:
-            _, unprotected = win32crypt.CryptUnprotectData(raw, None, None, None, 0)
-            return unprotected
-        except Exception:
-            return None
+        if _dpapi_unprotect is not None:
+            try:
+                return _dpapi_unprotect(raw)
+            except Exception:
+                pass
+        if win32crypt is not None:
+            try:
+                _, unprotected = win32crypt.CryptUnprotectData(raw, None, None, None, 0)
+                return unprotected
+            except Exception:
+                pass
+        return raw
 
     def save_activation(self, data: dict) -> None:
         self._set_string("ActivationBlob", self._protect(json.dumps(data, separators=(",", ":")).encode("utf-8")))

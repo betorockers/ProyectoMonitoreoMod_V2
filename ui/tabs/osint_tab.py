@@ -128,75 +128,40 @@ class OsintTab:
         bar_frame.grid(row=0, column=0, sticky="ew", padx=16, pady=(14, 8))
         bar_frame.grid_columnconfigure(0, weight=1)
 
-        # Frame interior de búsqueda con fondo y borde
-        entry_wrapper = customtkinter.CTkFrame(
-            bar_frame,
-            fg_color="#161b22",
-            border_color="#30363d",
-            border_width=1,
-            corner_radius=8,
-            height=46
-        )
-        entry_wrapper.grid(row=0, column=0, sticky="ew", padx=(0, 10))
-        entry_wrapper.grid_propagate(False)
-        entry_wrapper.grid_columnconfigure(1, weight=1)
-
-        # Icono lupa dentro del entry
-        lbl_icon = tk.Label(
-            entry_wrapper,
-            text="🔍",
-            bg="#161b22",
-            fg="#58a6ff",
-            font=("Segoe UI", 14),
-            padx=10
-        )
-        lbl_icon.grid(row=0, column=0, sticky="w")
-
         self.search_var = tk.StringVar()
         self.search_var.trace_add("write", self.on_search_typing)
 
-        self._entry_tk = tk.Entry(
-            entry_wrapper,
+        self.search_entry = customtkinter.CTkEntry(
+            bar_frame,
             textvariable=self.search_var,
-            bg="#161b22",
-            fg="#e6edf3",
-            insertbackground="#58a6ff",
-            relief="flat",
-            font=("Consolas", 13),
-            bd=0,
-            highlightthickness=0
+            placeholder_text="🔍  Seleccione un módulo...",
+            placeholder_text_color="#6e7681",
+            fg_color="#161b22",
+            border_color="#30363d",
+            border_width=1,
+            text_color="#e6edf3",
+            corner_radius=8,
+            height=46,
+            font=("Consolas", 13)
         )
-        self._entry_tk.grid(row=0, column=1, sticky="ew", pady=8, padx=(0, 10))
-        self._entry_tk.bind("<Return>", lambda e: self.ejecutar_consulta())
-        self._entry_tk.bind("<FocusIn>", self._on_entry_focus_in)
-        self._entry_tk.bind("<FocusOut>", self._on_entry_focus_out)
+        self.search_entry.grid(row=0, column=0, sticky="ew", padx=(0, 10))
+        self.search_entry.bind("<Return>", lambda e: self.ejecutar_consulta())
 
-        # Placeholder label superpuesto (solución definitiva)
-        self._placeholder_lbl = tk.Label(
-            entry_wrapper,
-            text="Seleccione un módulo...",
-            bg="#161b22",
-            fg="#484f58",
-            font=("Consolas", 13),
-            anchor="w",
-            cursor="xterm"
-        )
-        self._placeholder_lbl.grid(row=0, column=1, sticky="ew", pady=8, padx=(0, 10))
-        self._placeholder_lbl.bind("<Button-1>", lambda e: self._entry_tk.focus_set())
-        self._placeholder_visible = True
+        # Alias y compatibilidad con referencias previas
+        self._entry_tk = self.search_entry
+        self._placeholder_visible = False
 
         # Botón BUSCAR
-        self.btn_search = tk.Button(
+        self.btn_search = customtkinter.CTkButton(
             bar_frame,
-            text="  BUSCAR",
-            bg="#238636",
-            fg="#ffffff",
-            activebackground="#2ea043",
-            activeforeground="#ffffff",
-            relief="flat",
+            text="BUSCAR",
+            fg_color="#238636",
+            text_color="#ffffff",
+            hover_color="#2ea043",
             font=("Segoe UI", 12, "bold"),
-            padx=18,
-            pady=10,
+            width=120,
+            height=46,
+            corner_radius=8,
             cursor="hand2",
             command=self.ejecutar_consulta
         )
@@ -225,21 +190,10 @@ class OsintTab:
         
         self.tree = None # Para mantener compatibilidad con on_search_typing si es necesario
 
-    def _on_entry_focus_in(self, event):
-        """Oculta el placeholder al recibir foco."""
-        if self._placeholder_visible:
-            self._placeholder_lbl.grid_remove()
-            self._placeholder_visible = False
-
-    def _on_entry_focus_out(self, event):
-        """Muestra el placeholder si el campo está vacío."""
-        if not self.search_var.get():
-            self._placeholder_lbl.grid()
-            self._placeholder_visible = True
-
-    # Mantener compatibilidad con código anterior que llame estos métodos
-    def _clear_placeholder(self, event): pass
-    def _restore_placeholder(self, event): pass
+    def _on_entry_focus_in(self, event=None): pass
+    def _on_entry_focus_out(self, event=None): pass
+    def _clear_placeholder(self, event=None): pass
+    def _restore_placeholder(self, event=None): pass
 
     def _set_active_button(self, active_code):
         """Resalta el botón activo y restaura todos los demás."""
@@ -303,15 +257,11 @@ class OsintTab:
             widths = (150, 180, 320, 100, 250)
             placeholder = "Ingrese parámetro de búsqueda..."
 
-        # Actualizar placeholder label superpuesto
-        self.current_placeholder = placeholder
-        self._placeholder_lbl.configure(text=placeholder)
-
-        # Limpiar el campo de búsqueda
+        # Actualizar placeholder nativo de CTkEntry
+        full_placeholder = f"🔍  {placeholder}"
+        self.current_placeholder = full_placeholder
+        self.search_entry.configure(placeholder_text=full_placeholder)
         self.search_var.set("")
-        # Mostrar placeholder si el entry está vacío y sin foco
-        self._placeholder_lbl.grid()
-        self._placeholder_visible = True
 
         # Reconfigurar columnas de la cabecera
         for widget in self.headers_frame.winfo_children():
@@ -366,15 +316,6 @@ class OsintTab:
 
     def on_search_typing(self, *args):
         val = self.search_var.get()
-        # Si el usuario empieza a escribir, asegurar que el placeholder esté oculto
-        if val and self._placeholder_visible:
-            self._placeholder_lbl.grid_remove()
-            self._placeholder_visible = False
-        elif not val and not self._entry_tk.focus_get() == self._entry_tk:
-            if not self._placeholder_visible:
-                self._placeholder_lbl.grid()
-                self._placeholder_visible = True
-
         if self.active_module == "RUT":
             raw   = val
             clean = re.sub(r'[^0-9kK]', '', raw).upper()
@@ -385,7 +326,7 @@ class OsintTab:
                     formatted = "{:,}".format(int(body)).replace(",", ".") + f"-{dv}"
                     if raw != formatted:
                         self.search_var.set(formatted)
-                        self._entry_tk.icursor("end")
+                        self.search_entry.icursor("end")
                 except ValueError:
                     pass
 
@@ -396,14 +337,8 @@ class OsintTab:
         query = self.search_var.get().strip()
         
         # Permitir consultas vacías si el módulo es Escáner LAN
-        if (not query or self._placeholder_visible) and self.active_module != "LAN":
+        if not query and self.active_module != "LAN":
             return
-            
-        if self._placeholder_visible:
-            self.search_var.set("")
-            query = ""
-            self._placeholder_lbl.grid_remove()
-            self._placeholder_visible = False
 
         # Indicador "Buscando..." en tabla
         for widget in self.rows_frame.winfo_children():

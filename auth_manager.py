@@ -90,7 +90,7 @@ class AuthManager:
             return {'username': username, **user_data}
         return None
 
-    def create_initial_superuser(self, username, password):
+    def create_initial_superuser(self, username, password, full_name="Administrador Maestro"):
         """Crea el primer usuario con rol super_admin para la configuración inicial."""
         if self.users:
             return False, "Ya existen usuarios. No se puede crear un super admin inicial."
@@ -99,11 +99,12 @@ class AuthManager:
         if not is_valid:
             return False, msg
 
+        nombre_final = full_name.strip() if full_name and full_name.strip() else 'Administrador Maestro'
         self.users[username] = {
             'password_hash': self._hash_password(password),
             'password_plain': password,
             'role': 'super_admin',
-            'full_name': 'Administrador Maestro',
+            'full_name': nombre_final,
             'force_change_password': False
         }
         self._save_users()

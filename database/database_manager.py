@@ -93,7 +93,8 @@ class DatabaseManager:
                 try:
                     ts = datetime.fromisoformat(row[0])
                 except ValueError:
-                    ts = datetime.strptime(row[0].split(".")[0], "%Y-%m-%d %H:%M:%S")
+                    clean_ts = row[0].replace("T", " ").split(".")[0]
+                    ts = datetime.strptime(clean_ts, "%Y-%m-%d %H:%M:%S")
 
                 timestamps.append(ts)
                 latencias.append(row[1])

@@ -1,4 +1,4 @@
-"""Generador de reportes PDF corporativos para Anvic Network Sentinel."""
+"""Generador de reportes PDF corporativos y ejecutivos para Anvic Network Sentinel."""
 
 from __future__ import annotations
 
@@ -7,8 +7,13 @@ import os
 from dataclasses import dataclass
 from datetime import datetime
 
-import numpy as np
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.dates as mdates
 from matplotlib.figure import Figure
+from matplotlib.patches import FancyBboxPatch
+import numpy as np
+
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import landscape, letter
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
@@ -44,13 +49,21 @@ class ReportContext:
 def _status_color(status: str) -> str:
     normalized = (status or "").strip().lower()
     if normalized == "conectado":
-        return "#2E7D32"
+        return "#15803D"
     if normalized == "desconectado":
-        return "#C62828"
-    return "#6B7280"
+        return "#DC2626"
+    return "#64748B"
 
 
-def _paragraph_style(name: str, *, size: int, color: str, leading: int | None = None, bold: bool = False) -> ParagraphStyle:
+def _paragraph_style(
+    name: str,
+    *,
+    size: int,
+    color: str,
+    leading: int | None = None,
+    bold: bool = False,
+    alignment: int = 0,
+) -> ParagraphStyle:
     base = getSampleStyleSheet()["BodyText"]
     return ParagraphStyle(
         name=name,
@@ -59,6 +72,7 @@ def _paragraph_style(name: str, *, size: int, color: str, leading: int | None = 
         fontSize=size,
         leading=leading or (size + 3),
         textColor=colors.HexColor(color),
+        alignment=alignment,
     )
 
 
@@ -66,29 +80,43 @@ def _build_summary_cards(ctx: ReportContext, styles: dict[str, ParagraphStyle]) 
     total_devices = len(ctx.equipos)
     online = 0
     total_disconnects = 0
+    total_microcortes = 0
+    total_downtime_sec = 0.0
     uptimes: list[float] = []
 
     for equipo in ctx.equipos:
-        monitor = ctx.monitors.get(equipo["ip"])
+        ip = equipo["ip"]
+        monitor = ctx.monitors.get(ip)
         if monitor and getattr(monitor, "status", "") == "Conectado":
             online += 1
         total_disconnects += int(getattr(monitor, "desconexiones_count", 0) or 0)
-        if ctx.metricas:
-            uptimes.append(float(ctx.metricas.calcular_uptime(equipo["ip"])))
 
-    avg_uptime = sum(uptimes) / len(uptimes) if uptimes else 0.0
+        if ctx.metricas:
+            uptimes.append(float(ctx.metricas.calcular_uptime(ip)))
+            if hasattr(ctx.metricas, "analizar_desconexiones_y_downtime"):
+                analisis = ctx.metricas.analizar_desconexiones_y_downtime(ip, periodo_horas=24)
+                total_microcortes += analisis.get("microcortes_count", 0)
+                total_downtime_sec += analisis.get("downtime_segundos", 0.0)
+
+    avg_uptime = sum(uptimes) / len(uptimes) if uptimes else 100.0
     offline = max(total_devices - online, 0)
     tls_mode = "Estricto" if ctx.tls_strict else "Flexible"
 
+    downtime_str = (
+        ctx.metricas._formatear_duracion(total_downtime_sec)
+        if ctx.metricas and hasattr(ctx.metricas, "_formatear_duracion")
+        else f"{int(total_downtime_sec)}s"
+    )
+
     cards = [
         ("Activos monitoreados", str(total_devices)),
-        ("Equipos en linea", str(online)),
-        ("Equipos fuera de linea", str(offline)),
-        ("Uptime promedio", f"{avg_uptime:.1f}%"),
-        ("Desconexiones", str(total_disconnects)),
-        ("Camaras registradas", str(ctx.cameras_count)),
-        ("Streams maximos", str(ctx.camera_max_streams)),
-        ("Politica TLS", tls_mode),
+        ("Equipos en línea", str(online)),
+        ("Equipos fuera de línea", str(offline)),
+        ("SLA Uptime promedio", f"{avg_uptime:.1f}%"),
+        ("Microcortes detectados", str(total_microcortes)),
+        ("Downtime acumulado", downtime_str),
+        ("Supervisión CCTV", f"{ctx.cameras_count} Cám. ({ctx.camera_max_streams} St)"),
+        ("Política TLS", tls_mode),
     ]
 
     rows = []
@@ -99,7 +127,7 @@ def _build_summary_cards(ctx: ReportContext, styles: dict[str, ParagraphStyle]) 
                 [Paragraph(title, styles["card_title"])],
                 [Paragraph(value, styles["card_value"])],
             ],
-            colWidths=[70 * mm],
+            colWidths=[59 * mm],
         )
         cell.setStyle(
             TableStyle(
@@ -107,10 +135,10 @@ def _build_summary_cards(ctx: ReportContext, styles: dict[str, ParagraphStyle]) 
                     ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#F8FAFC")),
                     ("BOX", (0, 0), (-1, -1), 0.8, colors.HexColor("#CBD5E1")),
                     ("INNERGRID", (0, 0), (-1, -1), 0, colors.white),
-                    ("TOPPADDING", (0, 0), (-1, -1), 8),
-                    ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
-                    ("LEFTPADDING", (0, 0), (-1, -1), 10),
-                    ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+                    ("TOPPADDING", (0, 0), (-1, -1), 5),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 8),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 8),
                 ]
             )
         )
@@ -123,7 +151,7 @@ def _build_summary_cards(ctx: ReportContext, styles: dict[str, ParagraphStyle]) 
             row.append("")
         rows.append(row)
 
-    table = Table(rows, colWidths=[74 * mm] * 4, hAlign="LEFT")
+    table = Table(rows, colWidths=[61.5 * mm] * 4, hAlign="LEFT")
     table.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP")]))
     return table
 
@@ -136,8 +164,9 @@ def _build_devices_table(ctx: ReportContext, styles: dict[str, ParagraphStyle]) 
             Paragraph("Estado", styles["table_header"]),
             Paragraph("Uptime 30d", styles["table_header"]),
             Paragraph("Latencia 1h", styles["table_header"]),
-            Paragraph("Desconexiones", styles["table_header"]),
-            Paragraph("Observacion", styles["table_header"]),
+            Paragraph("Microcortes", styles["table_header"]),
+            Paragraph("Downtime Total", styles["table_header"]),
+            Paragraph("Diagnóstico Operacional", styles["table_header"]),
         ]
     ]
 
@@ -145,10 +174,13 @@ def _build_devices_table(ctx: ReportContext, styles: dict[str, ParagraphStyle]) 
         ip = equipo["ip"]
         monitor = ctx.monitors.get(ip)
         status = getattr(monitor, "status", "Desconocido") if monitor else "Desconocido"
-        disconnects = int(getattr(monitor, "desconexiones_count", 0) or 0)
         uptime = float(ctx.metricas.calcular_uptime(ip)) if ctx.metricas else 0.0
+
         avg_lat = "N/A"
         lat_value = None
+        microcortes_count = 0
+        downtime_str = "0s"
+
         if ctx.metricas:
             datos = ctx.metricas.obtener_datos(ip, periodo_horas=1)
             if datos and datos["latencias"]:
@@ -157,29 +189,45 @@ def _build_devices_table(ctx: ReportContext, styles: dict[str, ParagraphStyle]) 
                     lat_value = sum(latencies) / len(latencies)
                     avg_lat = f"{lat_value:.1f} ms"
 
-        if status == "Desconectado":
-            observation = "Requiere atencion operativa"
-        elif lat_value is not None and lat_value >= 120:
-            observation = "Latencia elevada"
-        else:
-            observation = "Operacion estable"
+            if hasattr(ctx.metricas, "analizar_desconexiones_y_downtime"):
+                analisis = ctx.metricas.analizar_desconexiones_y_downtime(ip, periodo_horas=24)
+                microcortes_count = analisis.get("microcortes_count", 0)
+                downtime_str = analisis.get("downtime_str", "0s")
 
-        status_text = f'<font color="{_status_color(status)}"><b>{status}</b></font>'
+        if status == "Desconectado":
+            observation = "<font color='#DC2626'><b>Fuera de servicio (Atención inmediata)</b></font>"
+        elif microcortes_count > 0:
+            observation = f"<font color='#D97706'>Inestabilidad leve ({microcortes_count} eventos)</font>"
+        elif lat_value is not None and lat_value >= 100:
+            observation = "<font color='#D97706'>Latencia elevada (> 100ms)</font>"
+        else:
+            observation = "<font color='#16A34A'>Operación nominal estable</font>"
+
+        status_bullet = "●"
+        status_color_hex = _status_color(status)
+        status_text = f"<font color='{status_color_hex}'><b>{status_bullet} {status}</b></font>"
+        
+        # Color del downtime
+        dt_color = "#DC2626" if downtime_str != "0s" else "#16A34A"
+        dt_text = f"<font color='{dt_color}'><b>{downtime_str}</b></font>"
+
         data.append(
             [
-                Paragraph(str(equipo.get("label", "-")), styles["table_cell"]),
-                Paragraph(str(ip), styles["table_cell"]),
+                Paragraph(str(equipo.get("label", "-")), styles["table_cell_bold"]),
+                Paragraph(str(ip), styles["table_cell_mono"]),
                 Paragraph(status_text, styles["table_cell"]),
                 Paragraph(f"{uptime:.1f}%", styles["table_cell"]),
                 Paragraph(avg_lat, styles["table_cell"]),
-                Paragraph(str(disconnects), styles["table_cell"]),
+                Paragraph(str(microcortes_count), styles["table_cell"]),
+                Paragraph(dt_text, styles["table_cell"]),
                 Paragraph(observation, styles["table_cell"]),
             ]
         )
 
+    # Ancho total exacto para coincidir con el margen útil (246 mm)
     table = Table(
         data,
-        colWidths=[60 * mm, 38 * mm, 28 * mm, 24 * mm, 24 * mm, 24 * mm, 52 * mm],
+        colWidths=[48 * mm, 25 * mm, 28 * mm, 20 * mm, 21 * mm, 21 * mm, 24 * mm, 59 * mm],
         repeatRows=1,
     )
     table.setStyle(
@@ -190,8 +238,8 @@ def _build_devices_table(ctx: ReportContext, styles: dict[str, ParagraphStyle]) 
                 ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#CBD5E1")),
                 ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F8FAFC")]),
                 ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                ("TOPPADDING", (0, 0), (-1, -1), 6),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+                ("TOPPADDING", (0, 0), (-1, -1), 4),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
             ]
         )
     )
@@ -200,89 +248,246 @@ def _build_devices_table(ctx: ReportContext, styles: dict[str, ParagraphStyle]) 
 
 def _build_chart_image(fig: Figure, *, width: int, height: int) -> PDFImage:
     buffer = io.BytesIO()
-    fig.savefig(buffer, format="png", bbox_inches="tight", dpi=150)
+    fig.savefig(buffer, format="png", bbox_inches="tight", dpi=180)
     buffer.seek(0)
     return PDFImage(buffer, width=width, height=height)
 
 
 def _build_visuals(ctx: ReportContext, styles: dict[str, ParagraphStyle], chart_width: float) -> list:
     if not ctx.metricas or not ctx.equipos:
-        return [Paragraph("No hay datos historicos suficientes para analitica visual.", styles["muted"])]
+        return [Paragraph("No hay datos históricos suficientes para analítica visual.", styles["muted"])]
 
     elements: list = []
-    palette = ["#0EA5E9", "#22C55E", "#F59E0B", "#EF4444", "#8B5CF6", "#14B8A6"]
+    palette = ["#0284C7", "#16A34A", "#D97706", "#DC2626", "#7C3AED", "#0D9488"]
     chart_width = max(chart_width, 520)
 
-    fig_lat = Figure(figsize=(12.2, 4.0), facecolor="white")
+    # ── 1. Gráfico de Latencia Avanzado (Estilo Grafana con Umbrales SLA) ─────────
+    fig_lat = Figure(figsize=(12.0, 3.4), facecolor="white", dpi=100)
     ax_lat = fig_lat.add_subplot(111)
-    ax_lat.set_title("Latencia historica - ultimas 24 horas", fontsize=13)
-    ax_lat.grid(True, alpha=0.25)
-    ax_lat.set_ylabel("Milisegundos", fontsize=10)
-    ax_lat.tick_params(axis="both", labelsize=9)
+    ax_lat.set_facecolor("#FAFAFA")
+    ax_lat.grid(True, linestyle="--", alpha=0.35, color="#94A3B8")
+    ax_lat.set_ylabel("Latencia (ms)", fontsize=9, fontweight="bold", color="#1E293B")
+    ax_lat.tick_params(axis="both", labelsize=8, colors="#475569")
+
     has_lat_data = False
+    all_latencies = []
+
     for index, equipo in enumerate(ctx.equipos):
         datos = ctx.metricas.obtener_datos(equipo["ip"], periodo_horas=24)
-        if datos and datos["latencias"]:
-            ax_lat.plot(
-                range(len(datos["latencias"])),
-                datos["latencias"],
-                label=equipo["label"][:22],
-                linewidth=1.8,
-                color=palette[index % len(palette)],
-            )
+        if datos and datos["latencias"] and datos["timestamps"]:
+            ts_list = datos["timestamps"]
+            lats = datos["latencias"]
+            color = palette[index % len(palette)]
+            
+            # Submuestreo inteligente para evitar saturación visual en 24h
+            step = max(1, len(lats) // 60)
+            x_vals = ts_list[::step]
+            y_vals = [lats[k] if lats[k] is not None else 0 for k in range(0, len(lats), step)]
+
+            ax_lat.plot(x_vals, y_vals, label=equipo["label"][:20], linewidth=1.5, color=color)
+            ax_lat.fill_between(x_vals, y_vals, alpha=0.08, color=color)
             has_lat_data = True
+            all_latencies.extend([y for y in y_vals if y > 0])
+
     if has_lat_data:
-        ax_lat.set_xlabel("Muestras historicas", fontsize=10)
-        ax_lat.legend(fontsize=8, loc="upper right", ncol=2, frameon=False)
-        elements.append(Paragraph("Analitica de rendimiento", styles["section"]))
-        elements.append(Spacer(1, 4))
-        elements.append(
-            Paragraph(
-                "Curva comparativa de latencia para facilitar revision operativa, tendencias y deteccion de degradacion.",
-                styles["muted"],
-            )
+        # Línea de umbral de SLA
+        ax_lat.axhline(y=100, color="#DC2626", linestyle="--", linewidth=1.1, label="Límite SLA Advertencia (100 ms)", alpha=0.8)
+        
+        ax_lat.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M"))
+        ax_lat.legend(fontsize=7, loc="upper right", ncol=4, frameon=True, facecolor="white", edgecolor="#CBD5E1")
+        fig_lat.autofmt_xdate(rotation=0, ha="center")
+        fig_lat.tight_layout()
+
+        elements.append(Paragraph("Telemetría de Latencia & Rendimiento Temporal", styles["section"]))
+        elements.append(Spacer(1, 2))
+        
+        min_l = min(all_latencies) if all_latencies else 0.0
+        avg_l = sum(all_latencies) / len(all_latencies) if all_latencies else 0.0
+        max_l = max(all_latencies) if all_latencies else 0.0
+        p95_l = np.percentile(all_latencies, 95) if all_latencies else 0.0
+
+        stats_bar = (
+            f"<b>Métricas Consolidadas (24h):</b> &nbsp;&nbsp; "
+            f"Mínima: <b>{min_l:.1f} ms</b> &nbsp;│&nbsp; "
+            f"Promedio: <b>{avg_l:.1f} ms</b> &nbsp;│&nbsp; "
+            f"Percentil 95: <b>{p95_l:.1f} ms</b> &nbsp;│&nbsp; "
+            f"Máxima: <b>{max_l:.1f} ms</b>"
         )
-        elements.append(Spacer(1, 6))
-        elements.append(_build_chart_image(fig_lat, width=chart_width, height=230))
-        elements.append(Spacer(1, 14))
+        elements.append(Paragraph(stats_bar, styles["muted_highlight"]))
+        elements.append(Spacer(1, 4))
+        elements.append(_build_chart_image(fig_lat, width=chart_width, height=185))
+        elements.append(Spacer(1, 10))
 
-    heatmap_data = []
-    labels = []
-    for equipo in ctx.equipos:
-        labels.append(equipo["label"][:20])
-        datos = ctx.metricas.obtener_datos(equipo["ip"], periodo_horas=24)
-        if datos and datos["estados"]:
-            blocks = np.array_split(datos["estados"], 24)
-            availability = [
-                (sum(1 for state in block if state == 1) / len(block)) if len(block) > 0 else 0
-                for block in blocks
-            ]
-            heatmap_data.append(availability)
-        else:
-            heatmap_data.append([0] * 24)
+    # ── 2. Nuevo Mapa de Calor Discreto (Pastillas Redondeadas 7 Días × 24h) ───────
+    matriz_info = (
+        ctx.metricas.obtener_matriz_semanal()
+        if hasattr(ctx.metricas, "obtener_matriz_semanal")
+        else None
+    )
 
-    if heatmap_data:
-        fig_hm = Figure(figsize=(12.2, 4.6), facecolor="white")
+    if matriz_info:
+        matriz_disp = matriz_info["disponibilidad"]
+        dias_etiquetas = matriz_info["dias_etiquetas"]
+        horas_etiquetas = matriz_info["horas_etiquetas"]
+
+        fig_hm = Figure(figsize=(12.0, 3.2), facecolor="white", dpi=120)
         ax_hm = fig_hm.add_subplot(111)
-        ax_hm.set_title("Mapa de calor de disponibilidad por hora", fontsize=13)
-        ax_hm.imshow(heatmap_data, cmap="RdYlGn", aspect="auto", vmin=0, vmax=1)
-        ax_hm.set_yticks(range(len(labels)))
-        ax_hm.set_yticklabels(labels, fontsize=8)
-        ax_hm.set_xticks(range(0, 24, 2))
-        ax_hm.set_xticklabels([f"{hour:02d}:00" for hour in range(0, 24, 2)], fontsize=8)
-        ax_hm.set_xlabel("Tramo horario", fontsize=10)
-        elements.append(Paragraph("Disponibilidad operacional", styles["section"]))
-        elements.append(Spacer(1, 4))
+        ax_hm.set_facecolor("#FAFAFA")
+
+        # Escala cromática discreta de 5 niveles esmeralda (estilo GitHub / Datadog)
+        # Nivel 0 (caído/inactivo), 1 (bajo), 2 (medio), 3 (alto), 4 (100% nominal)
+        colores_escala = ["#F1F5F9", "#C8E6C9", "#81C784", "#2E7D32", "#0B3C26"]
+
+        nrows = len(dias_etiquetas)
+        ncols = len(horas_etiquetas)
+
+        tile_w = 0.82
+        tile_h = 0.72
+
+        for r in range(nrows):
+            for c in range(ncols):
+                val = matriz_disp[r][c]
+                if val <= 0.01:
+                    c_idx = 0
+                elif val < 0.70:
+                    c_idx = 1
+                elif val < 0.90:
+                    c_idx = 2
+                elif val < 0.99:
+                    c_idx = 3
+                else:
+                    c_idx = 4
+
+                color_box = colores_escala[c_idx]
+
+                # Dibujo de pastilla con esquinas redondeadas
+                box = FancyBboxPatch(
+                    (c - tile_w / 2, nrows - 1 - r - tile_h / 2),
+                    tile_w,
+                    tile_h,
+                    boxstyle="round,pad=0.03,rounding_size=0.18",
+                    facecolor=color_box,
+                    edgecolor="#E2E8F0",
+                    linewidth=0.5,
+                )
+                ax_hm.add_patch(box)
+
+        ax_hm.set_xlim(-0.7, ncols - 0.3)
+        ax_hm.set_ylim(-1.1, nrows - 0.3)
+        ax_hm.xaxis.tick_top()
+        ax_hm.set_xticks(range(ncols))
+        ax_hm.set_xticklabels(horas_etiquetas, fontsize=7.5, color="#475569")
+        ax_hm.tick_params(axis="x", top=True, bottom=False, labeltop=True, labelbottom=False, length=0)
+        ax_hm.set_yticks(range(nrows))
+        ax_hm.set_yticklabels(list(reversed(dias_etiquetas)), fontsize=8, fontweight="bold", color="#1E293B")
+        ax_hm.tick_params(axis="y", left=False, length=0)
+
+        # Quitar bordes del gráfico para diseño flat moderno
+        for spine in ax_hm.spines.values():
+            spine.set_visible(False)
+
+        # Leyenda inferior derecha estilo Datadog / GitHub (Ubicada limpia debajo de los días)
+        legend_start_x = ncols - 6.8
+        leg_w, leg_h = 0.70, 0.32
+        legend_y = -0.92
+        ax_hm.text(legend_start_x - 0.4, legend_y + leg_h / 2, "Menos", fontsize=7, color="#64748B", ha="right", va="center")
+        for i, col in enumerate(colores_escala):
+            patch_leg = FancyBboxPatch(
+                (legend_start_x + (i * 0.85), legend_y),
+                leg_w,
+                leg_h,
+                boxstyle="round,pad=0.02,rounding_size=0.15",
+                facecolor=col,
+                edgecolor="#CBD5E1",
+                linewidth=0.4,
+            )
+            ax_hm.add_patch(patch_leg)
+        ax_hm.text(legend_start_x + (len(colores_escala) * 0.85) + 0.3, legend_y + leg_h / 2, "Más", fontsize=7, color="#64748B", ha="left", va="center")
+
+        fig_hm.subplots_adjust(left=0.05, right=0.98, top=0.88, bottom=0.08)
+
+        elements.append(Paragraph("Matriz Semanal de Disponibilidad (Mapa de Calor Discreto)", styles["section"]))
+        elements.append(Spacer(1, 2))
         elements.append(
             Paragraph(
-                "Visual de disponibilidad por equipo y franja horaria para detectar ventanas de caida y comportamiento repetitivo.",
+                "Mapeo de disponibilidad operacional por día de la semana y franja horaria (00h - 23h). "
+                "Permite identificar con precisión ventanas de caída y patrones de degradación sistemática.",
                 styles["muted"],
             )
         )
-        elements.append(Spacer(1, 6))
-        elements.append(_build_chart_image(fig_hm, width=chart_width, height=255))
+        elements.append(Spacer(1, 4))
+        elements.append(_build_chart_image(fig_hm, width=chart_width, height=175))
 
     return elements
+
+
+def _build_dynamic_intelligence_capsule(ctx: ReportContext, styles: dict[str, ParagraphStyle]) -> Table:
+    """Construye la cápsula de dictamen técnico y recomendaciones según el comportamiento diario."""
+    if not ctx.metricas or not hasattr(ctx.metricas, "evaluar_estabilidad_global"):
+        return Table([[Paragraph("Evaluación heurística no disponible.", styles["muted"])]])
+
+    evaluacion = ctx.metricas.evaluar_estabilidad_global(ctx.equipos, periodo_horas=24)
+
+    estado = evaluacion["estado"]
+    badge_texto = evaluacion["badge"]
+    color_banner = evaluacion["color_hex"]
+    diagnostico = evaluacion["diagnostico"]
+    causa_raiz = evaluacion["causa_raiz"]
+    recomendaciones = evaluacion["recomendaciones"]
+
+    # Color de fondo según severidad
+    bg_banner = "#DCFCE7" if estado == "ESTABLE" else "#FEF3C7" if estado == "DEGRADADA_INTERMITENTE" else "#FEE2E2"
+
+    banner_p = Paragraph(f"<b>{badge_texto}</b>", styles["capsule_badge"])
+
+    content_cells = [
+        [
+            Paragraph("<b>1. Diagnóstico Operacional:</b>", styles["capsule_subhead"]),
+            Paragraph(diagnostico, styles["capsule_body"]),
+        ],
+        [
+            Paragraph("<b>2. Causa Raíz Probable:</b>", styles["capsule_subhead"]),
+            Paragraph(causa_raiz, styles["capsule_body"]),
+        ],
+        [
+            Paragraph("<b>3. Recomendaciones Técnicas:</b>", styles["capsule_subhead"]),
+            Paragraph("<br/>".join([f"• {r}" for r in recomendaciones]), styles["capsule_body"]),
+        ],
+    ]
+
+    inner_table = Table(content_cells, colWidths=[68 * mm, 174 * mm])
+    inner_table.setStyle(
+        TableStyle(
+            [
+                ("TOPPADDING", (0, 0), (-1, -1), 3),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+                ("LEFTPADDING", (0, 0), (-1, -1), 8),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+            ]
+        )
+    )
+
+    card_data = [
+        [banner_p],
+        [inner_table],
+    ]
+
+    capsule = Table(card_data, colWidths=[246 * mm], hAlign="LEFT")
+    capsule.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(bg_banner)),
+                ("BACKGROUND", (0, 1), (-1, 1), colors.HexColor("#F8FAFC")),
+                ("BOX", (0, 0), (-1, -1), 1.2, colors.HexColor(color_banner)),
+                ("LINEBELOW", (0, 0), (-1, 0), 0.8, colors.HexColor(color_banner)),
+                ("TOPPADDING", (0, 0), (-1, 0), 6),
+                ("BOTTOMPADDING", (0, 0), (-1, 0), 6),
+                ("LEFTPADDING", (0, 0), (-1, -1), 10),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+            ]
+        )
+    )
+    return capsule
 
 
 def build_network_report(ctx: ReportContext) -> str:
@@ -290,13 +495,20 @@ def build_network_report(ctx: ReportContext) -> str:
     styles = {
         "title": _paragraph_style("title", size=20, color="#0F172A", leading=24, bold=True),
         "subtitle": _paragraph_style("subtitle", size=10, color="#475569"),
-        "section": _paragraph_style("section", size=13, color="#0F172A", bold=True),
-        "body": _paragraph_style("body", size=9, color="#1F2937", leading=12),
-        "muted": _paragraph_style("muted", size=9, color="#64748B"),
-        "card_title": _paragraph_style("card_title", size=8, color="#475569"),
-        "card_value": _paragraph_style("card_value", size=17, color="#0F172A", bold=True),
-        "table_header": _paragraph_style("table_header", size=8, color="#FFFFFF", bold=True),
-        "table_cell": _paragraph_style("table_cell", size=8, color="#1F2937"),
+        "section": _paragraph_style("section", size=12, color="#0F172A", bold=True),
+        "subheader": _paragraph_style("subheader", size=10, color="#1E293B", bold=True),
+        "body": _paragraph_style("body", size=8.5, color="#1F2937", leading=12),
+        "muted": _paragraph_style("muted", size=8, color="#64748B", leading=11),
+        "muted_highlight": _paragraph_style("muted_highlight", size=8, color="#0F172A", leading=11),
+        "card_title": _paragraph_style("card_title", size=7.5, color="#64748B"),
+        "card_value": _paragraph_style("card_value", size=14, color="#0F172A", bold=True),
+        "table_header": _paragraph_style("table_header", size=7.5, color="#FFFFFF", bold=True),
+        "table_cell": _paragraph_style("table_cell", size=7.5, color="#1F2937"),
+        "table_cell_bold": _paragraph_style("table_cell_bold", size=7.5, color="#0F172A", bold=True),
+        "table_cell_mono": _paragraph_style("table_cell_mono", size=7.5, color="#334155"),
+        "capsule_badge": _paragraph_style("capsule_badge", size=9.5, color="#0F172A", bold=True),
+        "capsule_subhead": _paragraph_style("capsule_subhead", size=8.5, color="#0F172A", bold=True),
+        "capsule_body": _paragraph_style("capsule_body", size=8, color="#334155", leading=11),
     }
 
     generated_at = datetime.now()
@@ -305,20 +517,21 @@ def build_network_report(ctx: ReportContext) -> str:
         pagesize=landscape(letter),
         leftMargin=16 * mm,
         rightMargin=16 * mm,
-        topMargin=14 * mm,
+        topMargin=12 * mm,
         bottomMargin=12 * mm,
     )
     elements: list = []
 
+    # ── Cabecera Principal con Logo y Usuario Dinámico ────────────────────────────
     title_column = [
         Paragraph(ctx.app_name, styles["title"]),
         Paragraph(ctx.tagline, styles["subtitle"]),
         Spacer(1, 2),
         Paragraph(
             (
-                f"<b>Reporte ejecutivo-operacional</b><br/>"
-                f"Fecha de corte: {generated_at.strftime('%d/%m/%Y %H:%M:%S')}<br/>"
-                f"Generado por: {ctx.generated_by}"
+                f"<b>Reporte Ejecutivo-Operacional de Telemetría</b><br/>"
+                f"Fecha de corte: <b>{generated_at.strftime('%d/%m/%Y %H:%M:%S')}</b><br/>"
+                f"Generado por: <b>{ctx.generated_by}</b>"
             ),
             styles["body"],
         ),
@@ -332,84 +545,82 @@ def build_network_report(ctx: ReportContext) -> str:
                 else "",
             ]
         ],
-        colWidths=[230 * mm, 24 * mm],
+        colWidths=[222 * mm, 24 * mm],
     )
     title_table.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP")]))
     elements.append(title_table)
-    elements.append(Spacer(1, 10))
+    elements.append(Spacer(1, 6))
 
-    elements.append(Paragraph("Resumen ejecutivo", styles["section"]))
-    elements.append(Spacer(1, 4))
+    # ── Resumen Ejecutivo ─────────────────────────────────────────────────────────
+    elements.append(Paragraph("Resumen Ejecutivo de Infraestructura", styles["section"]))
+    elements.append(Spacer(1, 3))
     elements.append(_build_summary_cards(ctx, styles))
-    elements.append(Spacer(1, 10))
+    elements.append(Spacer(1, 7))
 
-    elements.append(Paragraph("Alcance de supervision incorporado", styles["section"]))
-    elements.append(Spacer(1, 4))
-    scope_text = (
-        "Disponibilidad ICMP, diagnostico HTTP/HTTPS, escaneo controlado de puertos, "
-        "SNMP basico, SSH de consulta, supervision visual de camaras, politica TLS configurable "
-        "y evidencia historica para soporte operacional."
-    )
-    elements.append(Paragraph(scope_text, styles["body"]))
-    elements.append(Spacer(1, 10))
-
-    elements.append(Paragraph("Estado de activos monitoreados", styles["section"]))
-    elements.append(Spacer(1, 4))
+    # ── Tabla de Activos Monitoreados ─────────────────────────────────────────────
+    elements.append(Paragraph("Inventario y Estado de Activos Monitoreados", styles["section"]))
+    elements.append(Spacer(1, 3))
     elements.append(_build_devices_table(ctx, styles))
-    elements.append(Spacer(1, 10))
+    elements.append(Spacer(1, 8))
 
+    # ── Página 2: Analítica Visual de Telemetría ───────────────────────────────────
     visuals = _build_visuals(ctx, styles, doc.width)
     if visuals:
         elements.append(PageBreak())
-        elements.append(Paragraph("Analitica visual ampliada", styles["section"]))
-        elements.append(Spacer(1, 4))
-        elements.append(
-            Paragraph(
-                "Las siguientes visualizaciones se presentan en formato ampliado para facilitar analisis tecnico, revision ejecutiva y lectura en impresion o pantalla.",
-                styles["body"],
-            )
-        )
-        elements.append(Spacer(1, 10))
-        elements.append(Spacer(1, 10))
         elements.extend(visuals)
-        elements.append(Spacer(1, 10))
+        elements.append(Spacer(1, 8))
 
+    # ── Página 3: Cápsula Dinámica de Inteligencia & Recomendaciones ───────────────
+    elements.append(PageBreak())
+    elements.append(Paragraph("Dictamen de Estabilidad & Análisis de Inteligencia Operacional", styles["section"]))
+    elements.append(Spacer(1, 2))
+    elements.append(
+        Paragraph(
+            "Conclusiones y diagnóstico heurístico generado por el motor de telemetría de Argos Guard, "
+            "evaluando fluctuaciones de señal, microcortes y salud integral de enlaces.",
+            styles["muted"],
+        )
+    )
+    elements.append(Spacer(1, 5))
+    elements.append(_build_dynamic_intelligence_capsule(ctx, styles))
+    elements.append(Spacer(1, 10))
+
+    # ── Sección OSINT (si existen datos) ──────────────────────────────────────────
     if ctx.osint_data:
-        elements.append(PageBreak())
         elements.append(Paragraph("Análisis de Inteligencia y Amenazas (OSINT)", styles["section"]))
-        elements.append(Spacer(1, 4))
-        
+        elements.append(Spacer(1, 3))
+
         for module_name, results in ctx.osint_data.items():
             if not results:
                 continue
             elements.append(Paragraph(f"Módulo: {module_name}", styles["subheader"]))
-            elements.append(Spacer(1, 4))
-            
+            elements.append(Spacer(1, 2))
+
             table_data = []
-            # Tratar de inferir cabeceras basados en la longitud de las filas (al menos 3)
-            # En nuestro OSINT, la longitud puede variar pero sabemos que las 2 últimas son Riesgo e Impacto
             ncols = len(results[0])
             headers = ["Parámetro/Item"] * (ncols - 2) + ["Riesgo", "Impacto"] if ncols >= 2 else ["Dato"] * ncols
             table_data.append([Paragraph(h, styles["table_header"]) for h in headers])
-            
-            table_style = TableStyle([
-                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1F2937")),
-                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-                ("ALIGN", (0, 0), (-1, -1), "LEFT"),
-                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                ("BOTTOMPADDING", (0, 0), (-1, 0), 8),
-                ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#E2E8F0")),
-                ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ])
-            
+
+            table_style = TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1F2937")),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                    ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                    ("BOTTOMPADDING", (0, 0), (-1, 0), 4),
+                    ("TOPPADDING", (0, 0), (-1, 0), 4),
+                    ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#E2E8F0")),
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ]
+            )
+
             for row_idx, res in enumerate(results, start=1):
                 row_cells = []
                 for val in res:
                     val_str = str(val) if val is not None else ""
                     row_cells.append(Paragraph(val_str, styles["table_cell"]))
                 table_data.append(row_cells)
-                
-                # Colorear celda de Riesgo si existe
+
                 if len(res) >= 2:
                     riesgo_val = str(res[-2])
                     bg_color = None
@@ -419,47 +630,42 @@ def build_network_report(ctx: ReportContext) -> str:
                         bg_color = colors.HexColor("#FEF3C7")
                     elif "🟢" in riesgo_val:
                         bg_color = colors.HexColor("#DCFCE7")
-                    
+
                     if bg_color:
                         col_idx = len(res) - 2
                         table_style.add("BACKGROUND", (col_idx, row_idx), (col_idx, row_idx), bg_color)
-                        
-            # Ajustar anchos equitativamente
+
             col_width = (doc.width) / max(1, ncols)
             t = Table(table_data, colWidths=[col_width] * ncols, hAlign="LEFT")
             t.setStyle(table_style)
             elements.append(t)
-            elements.append(Spacer(1, 10))
+            elements.append(Spacer(1, 8))
 
-    elements.append(Paragraph("Notas de ciberseguridad y operacion", styles["section"]))
-    elements.append(Spacer(1, 4))
+    # ── Notas Finales y Certificación ─────────────────────────────────────────────
+    elements.append(Paragraph("Notas de Cumplimiento & Certificación de Emisión", styles["section"]))
+    elements.append(Spacer(1, 2))
     notes = (
-        f"Este reporte refleja una operacion de red bajo politica TLS "
-        f"{'estricta' if ctx.tls_strict else 'flexible controlada'}, "
-        f"con {ctx.camera_max_streams} stream(s) simultaneo(s) como tope configurado "
-        f"y {ctx.cameras_count} camara(s) registradas en la instalacion."
+        f"Este documento refleja la telemetría operacional bajo política TLS "
+        f"{'estricta' if ctx.tls_strict else 'flexible controlada'}, con {ctx.camera_max_streams} stream(s) "
+        f"simultáneo(s) y {ctx.cameras_count} cámara(s) registradas. "
+        f"Emitido y validado digitalmente por la suite <b>{ctx.app_name} {ctx.version}</b>."
     )
     elements.append(Paragraph(notes, styles["body"]))
-    elements.append(Spacer(1, 12))
-    elements.append(
-        Paragraph(
-            f"Documento emitido por {ctx.app_name} v{ctx.version}.",
-            styles["muted"],
-        )
-    )
+    elements.append(Spacer(1, 6))
 
     def _decorate_page(canvas, _doc):
-        canvas.setTitle(f"{ctx.app_name} - Reporte Operacional")
-        canvas.setAuthor("ANVIC")
-        canvas.setSubject("Reporte tecnico-operacional de monitoreo de red e instalaciones")
+        canvas.setTitle(f"{ctx.app_name} - Reporte de Telemetría")
+        canvas.setAuthor("ANVIC SECURITY")
+        canvas.setSubject("Reporte técnico-operacional de telemetría de red")
         canvas.setCreator(ctx.app_name)
-        canvas.setKeywords("ANVIC, monitoreo, red, CCTV, soporte, ciberseguridad")
+        canvas.setKeywords("ANVIC, telemetria, red, CCTV, ciberseguridad, reporte")
         canvas.saveState()
         canvas.setStrokeColor(colors.HexColor("#CBD5E1"))
         canvas.line(16 * mm, 8 * mm, 262 * mm, 8 * mm)
         canvas.setFont("Helvetica", 8)
         canvas.setFillColor(colors.HexColor("#64748B"))
-        canvas.drawString(16 * mm, 5 * mm, f"{ctx.app_name} v{ctx.version}")
+        ver_str = ctx.version if ctx.version.startswith("v") else f"v{ctx.version}"
+        canvas.drawString(16 * mm, 5 * mm, f"{ctx.app_name} {ver_str} • Telemetría Industrial")
         canvas.drawRightString(262 * mm, 5 * mm, generated_at.strftime("%d/%m/%Y %H:%M"))
         canvas.restoreState()
 

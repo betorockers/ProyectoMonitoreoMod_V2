@@ -293,7 +293,7 @@ class App(customtkinter.CTk):
         tabview.grid(row=0, column=0, padx=10, pady=(10, 0), sticky="nsew")
 
         tab_monitoreo = tabview.add("Operacion en Vivo")
-        tab_historial = tabview.add("Historial Operacional")
+        tab_historial = tabview.add("Telemetría")
         tab_camaras = tabview.add("Supervision Visual")
 
         # Instanciar controladores de tabs
@@ -615,6 +615,18 @@ class App(customtkinter.CTk):
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         filename = os.path.join(BASE_PATH, f"{b.REPORT_FILE_PREFIX}_{timestamp}.pdf")
 
+        user = getattr(self, "current_user", {}) or {}
+        full_name = user.get("full_name") or ""
+        username = user.get("username") or ""
+        role = user.get("role", "Operador")
+        role_label = role.replace("_", " ").title()
+
+        nombre_mostrar = full_name if full_name else username
+        if nombre_mostrar:
+            user_display = f"{nombre_mostrar} • {role_label}"
+        else:
+            user_display = f"Operador de Red • {role_label}"
+
         try:
             build_network_report(
                 ReportContext(
@@ -623,7 +635,7 @@ class App(customtkinter.CTk):
                     version=b.VERSION,
                     tagline=b.APP_TAGLINE,
                     logo_path=os.path.join(ASSETS_PATH, "img", b.LOGO_FILE),
-                    generated_by=self.current_user["full_name"],
+                    generated_by=user_display,
                     equipos=self.equipos_a_monitorear,
                     monitors=self.monitors,
                     metricas=getattr(self, "metricas", None),

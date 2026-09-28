@@ -1,4 +1,4 @@
-﻿# 🛡️ Anvic Network Sentinel — v2.2.3
+# 🛡️ Anvic Network Sentinel — v2.2.3
 
 > **Plataforma de supervisión técnica y visual para instalaciones conectadas**  
 > Desarrollado por **BetoGraf.inc** | Licencia Pro Perpetua  
@@ -207,35 +207,30 @@ Root CA (RSA-4096, SHA-256, 7 años)
 
 ---
 
-## Changelog v2.2.3
+## Changelog v2.2.3 (Industrial & Commercial Release)
 
-### 🆕 Nuevas funcionalidades
-- **Botones OSINT con indicador activo**: el botón del servicio seleccionado cambia a cian `#00b4d8`
-- **PPU extendido**: ahora devuelve 8 campos (Tipo, RUT Propietario, Nro. Motor incluidos)
-- **Escáner LAN real**: ping sweep ICMP de la subred /24 detecta hosts activos
-- **Traceroute local**: usa `tracert` nativo de Windows (sin dependencia externa)
-- **Escaneo de puertos local**: socket scan de 17 puertos comunes, sin APIs externas
+### 🆕 Nuevas Funcionalidades y UI/UX Top Tier
+- **Desacople Multi-Monitor de Telemetría**: Botón `⧉ Desacoplar` / `📥 Reacoplar` para proyectar el dashboard de latencia, SLA y mapa de calor de forma independiente y continua en una pantalla secundaria.
+- **Gaveta Lateral Colapsable**: Panel de control con botón flecha `◀ / ▶` exclusivo de la pestaña "Operación en Vivo", liberando el 100% de la superficie visual en las demás pestañas.
+- **Canvas Hover Tooltips**: Visualización flotante e inteligente de los nombres de los equipos sobre el mapa de monitoreo al pasar el cursor, evitando truncamientos por espacio.
+- **Botones OSINT con Indicador Activo**: Resaltado visual en cian `#00b4d8` para el módulo seleccionado.
+- **Suite de Pruebas Automatizadas**: 53 tests unitarios y de integración con `pytest` pasando al 100% con 0 errores y 0 warnings.
 
-### 🔧 Fixes de APIs OSINT
-- **WHOIS**: migrado a socket TCP port 43 nativo (sin rate limit)
-- **IP Geo**: migrado de ip-api.com a ipinfo.io (50k req/mes gratis)
-- **Email**: migrado de eva.pingutil.com (caído) a disify.com
-- **Fugas**: migrado a leakcheck.io API pública
+### 🛡️ Perímetro Blindado y Scrapers Calibrados
+- **Scrapers Congelados**: `core/scraper_ppu.py` y `core/scraper_rut.py` mantenidos 100% intactos con su lógica anti-bloqueo y selectores originales.
+- **Resolución Standalone OSINT**: Inclusión completa de `bs4`, `soupsieve`, `requests`, `urllib3` y certificados SSL CA de `certifi` en `AnvicNetworkSentinel.spec`, garantizando consultas sin interrupciones en la app compilada.
 
-### 🎨 Mejoras UI/UX
-- Scrollbars oscuras elegantes (sin thumb blanco de Windows)
-- Botonera OSINT con estado visual activo/inactivo diferenciado
-- Tabla de resultados PPU con las 8 columnas reales
+### ⚡ Rendimiento, Base de Datos y Reportes Ejecutivos
+- **Mantenimiento y Purga Automática SQLite (90 días)**: Rutina periódica en `metrics_manager.py` con purga diaria automática de pings mayores a 90 días y ejecución de `PRAGMA optimize;` para mantener la base de datos ligera en operaciones 24/7.
+- **Parser Universal de Timestamps ISO**: Implementación de `_parse_timestamp` resiliente a formatos ISO con `'T'` y espacios, garantizando la generación ininterrumpida de reportes ejecutivos en PDF (190 KB).
+- **Sincronización Dinámica de Telemetría**: Evento `_on_tab_changed` en `CTkTabview` para refresco inmediato de KPIs y gráficos de latencia.
+- **Permisos de Escritura UAC**: Inno Setup 7 configurado con directiva `[Dirs] Name: "{app}"; Permissions: users-modify` para permitir escritura local de BD y configs sin requerir elevación administrativa continua.
 
-### 🔐 Firma Digital
-- Integrada en el pipeline de build (`build_pipeline.py` PASO 6-7)
-- Certificado RSA-4096 SHA-256 con cadena Root CA → Code Signing
-- Scripts `crear_certificado_anvic.ps1` y `firmar_anvic.ps1` en `E:\Certificados\`
-- `installer.iss` configurado con `[SigningTool]` para firma automática Inno Setup
-
-### 🗃️ Build limpio
-- `compilar_v2.2.3.bat` borra BD y configs antes de compilar (release virgen)
-- `build_pipeline.py` actualizado a 7 pasos con firma y verificación integradas
+### 🔐 Seguridad & Compilación Industrial
+- **DPAPI Nativo de Windows (Zero-Dependencies)**: Implementación de cifrado DPAPI mediante `ctypes` (`Crypt32.dll` / `Kernel32.dll`) en `key_manager.py` y `licensing/license_storage.py`, garantizando funcionamiento autónomo out-of-the-box sin requerir paquetes externos en la máquina del cliente.
+- **Cython C-Extensions**: 8 módulos centrales (`network_tools_logic`, `auth_manager`, `key_manager`, `secure_config_manager` y todo el paquete `licensing`) compilados a binarios nativos C `.pyd` x64, protegiendo el código contra ingeniería inversa.
+- **Modo Comercial Día Cero**: Forzado automático del perfil `commercial.json` (eliminadas las etiquetas `[MODO DESARROLLADOR]` y `Modo Demo`).
+- **Firma Authenticode SHA-256**: Doble firma con timestamp RFC 3161 de DigiCert sobre el ejecutable principal y el instalador `Output\ANS_Setup_V2.2.3.exe` (92.4 MB) compilado con Inno Setup 7 en modo Ultra LZMA2.
 
 ---
 

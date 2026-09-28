@@ -233,7 +233,9 @@ class AdminTab:
         users = self.app.auth.get_all_users(self.app.current_user["role"])
         for i, user in enumerate(users):
             password_str = user.get("password_plain", "Oculta (Antigua)")
-            info = f"{user['full_name']} ({user['username']}) - Rol: {user['role']} - Pass: {password_str}"
+            full_name = (user.get("full_name") or "").strip() or user.get("username", "")
+            role_fmt = user.get("role", "").replace("_", " ").title()
+            info = f"{full_name} • {role_fmt} - Pass: {password_str}"
             customtkinter.CTkLabel(
                 self.user_list_frame, text=info
             ).grid(row=i, column=0, padx=10, pady=5, sticky="w")

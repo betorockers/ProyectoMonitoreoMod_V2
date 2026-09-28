@@ -1,5 +1,5 @@
-﻿# Manual de Usuario
-## Anvic Network Sentinel v2.2.1 - Edición Pro
+# Manual de Usuario
+## Anvic Network Sentinel v2.2.3 - Edición Pro (Industrial)
 
 Este manual describe el uso operativo de **Anvic Network Sentinel** desde la instalación inicial hasta la utilización completa de sus funciones en la edición `Pro`.
 

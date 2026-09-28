@@ -1,4 +1,4 @@
-﻿# config/branding.py
+# config/branding.py
 """
 Fuente de la Verdad para la identidad visual de Anvic Network Sentinel.
 Centraliza nombre, versión, copy principal y paleta de colores.
@@ -24,7 +24,7 @@ COLOR_DANGER = "#ff6b6b"       # Rojo (Offline)
 COLOR_WARNING = "#ffd43b"      # Amarillo (Latencia alta)
 COLOR_TEXT_WHITE = "#FFFFFF"
 COLOR_TEXT_GRAY = "#AAAAAA"
-COLOR_CARD_BG = "#2.2.3B"      # Fondo de tarjetas
+COLOR_CARD_BG = "#2B2B2B"      # Fondo de tarjetas
 
 # --- Recursos ---
 ICON_FILE = "IconoAnvic.ico"

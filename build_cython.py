@@ -1,17 +1,18 @@
 import os
 import shutil
-from distutils.core import setup
+from setuptools import setup
 from Cython.Build import cythonize
 
 def ejecutar():
     target_files = [
-        "monitor.py",
-        "ping_logic.py",
         "network_tools_logic.py",
-        "auth/auth_manager.py",
-        "database/key_manager.py",
+        "auth_manager.py",
+        "key_manager.py",
+        "secure_config_manager.py",
         "licensing/license_service.py",
-        "licensing/license_crypto.py"
+        "licensing/license_crypto.py",
+        "licensing/license_storage.py",
+        "licensing/machine_fingerprint.py",
     ]
     
     # Verify files exist

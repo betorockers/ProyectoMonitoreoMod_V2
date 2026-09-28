@@ -1,4 +1,4 @@
-﻿# monitor.py
+# monitor.py
 """
 Módulo Principal de Anvic Network Sentinel (V2.2.3).
 
@@ -55,6 +55,7 @@ from config.branding import (
 from ui.tabs.diagnostics_tab_secure import DiagnosticsTab as ModernDiagnosticsTab
 from ui.tabs.video_vigilancia_tab import VideoVigilanciaTab
 from ui.tabs.osint_tab import OsintTab
+from ui.tabs.history_tab import TelemetryTab
 from secure_config_manager import SecureConfigManager
 from services.report_builder import ReportContext, build_network_report
 from config.build_profile import load_build_profile
@@ -102,7 +103,7 @@ _DEFAULT_EQUIPMENT_DEV = [
     {"ip": "1.1.1.1", "label": "Cloudflare DNS (Default)"},
 ]
 
-DEFAULT_EQUIPMENT = [] if getattr(sys, 'frozen', False) else _DEFAULT_EQUIPMENT_DEV
+DEFAULT_EQUIPMENT = _DEFAULT_EQUIPMENT_DEV
 
 # --- GESTIÓN DE RUTAS PARA EJECUTABLE (PyInstaller) ---
 def get_base_path():
@@ -443,15 +444,20 @@ class SetupWindow(customtkinter.CTkToplevel):
             text_color="#AAAAAA",
         ).pack(pady=(0, 20))
 
-        self.user_entry = customtkinter.CTkEntry(
-            self, placeholder_text="Usuario Maestro", width=300, height=40
+        self.fullname_entry = customtkinter.CTkEntry(
+            self, placeholder_text="Nombre Real / Operador (Opcional)", width=300, height=40
         )
-        self.user_entry.pack(pady=10)
+        self.fullname_entry.pack(pady=6)
+
+        self.user_entry = customtkinter.CTkEntry(
+            self, placeholder_text="Usuario Maestro (Login)", width=300, height=40
+        )
+        self.user_entry.pack(pady=6)
 
         self.pass_entry = customtkinter.CTkEntry(
             self, placeholder_text="Contraseña", show="*", width=300, height=40
         )
-        self.pass_entry.pack(pady=10)
+        self.pass_entry.pack(pady=6)
 
         self.confirm_entry = customtkinter.CTkEntry(
             self,
@@ -460,7 +466,7 @@ class SetupWindow(customtkinter.CTkToplevel):
             width=300,
             height=40,
         )
-        self.confirm_entry.pack(pady=10)
+        self.confirm_entry.pack(pady=6)
 
         # Leyenda de requisitos de contraseña
         customtkinter.CTkLabel(
@@ -480,7 +486,7 @@ class SetupWindow(customtkinter.CTkToplevel):
             fg_color="#51cf66",
             hover_color="#40c057",
         )
-        self.btn_save.pack(pady=30)
+        self.btn_save.pack(pady=20)
 
         self.error_lbl = customtkinter.CTkLabel(self, text="", text_color="#ff6b6b")
         self.error_lbl.pack(pady=5)
@@ -490,7 +496,8 @@ class SetupWindow(customtkinter.CTkToplevel):
         os._exit(0)
 
     def perform_setup(self):
-        user = self.user_entry.get()
+        fullname = self.fullname_entry.get().strip() or "Administrador Maestro"
+        user = self.user_entry.get().strip()
         p1 = self.pass_entry.get()
         p2 = self.confirm_entry.get()
 
@@ -502,7 +509,7 @@ class SetupWindow(customtkinter.CTkToplevel):
             self.error_lbl.configure(text="Las contraseñas no coinciden")
             return
 
-        success, msg = self.auth.create_initial_superuser(user, p1)
+        success, msg = self.auth.create_initial_superuser(user, p1, full_name=fullname)
         if success:
             # Autenticar automáticamente
             user_data = self.auth.authenticate(user, p1)
@@ -525,7 +532,7 @@ class IPMonitor(customtkinter.CTkFrame):
         super().__init__(
             master,
             corner_radius=10,
-            fg_color="#2.2.3B",
+            fg_color="#2B2B2B",
             border_width=2,
             border_color="#555555",
         )
@@ -574,6 +581,26 @@ class IPMonitor(customtkinter.CTkFrame):
             self, text="Iniciando...", font=("Arial", 12, "bold"), text_color="#555555"
         )
         self.status_text_label.grid(row=4, column=0, padx=10, pady=(0, 10), sticky="ew")
+
+        # Permitir seleccionar equipo con un clic en cualquier parte de la tarjeta
+        for w in (self, self.label_name, self.ip_label, self.mac_label, self.status_icon_label, self.status_text_label):
+            w.bind("<Button-1>", self._on_card_click, add="+")
+
+    def _on_card_click(self, event=None):
+        try:
+            top = self.winfo_toplevel()
+            if hasattr(top, "remove_entry") and top.remove_entry.winfo_exists():
+                top.remove_entry.delete(0, "end")
+                top.remove_entry.insert(0, self.ip)
+                ToastNotification(
+                    top,
+                    "Equipo Seleccionado",
+                    f"IP: {self.ip} ({self.label})\nCargada para eliminación.",
+                    color="green",
+                    duration=2500,
+                )
+        except Exception:
+            pass
 
     def update_status(self, new_status, mac_address, latencia=None):
         # Delegar la actualización de la UI al hilo principal de Tkinter
@@ -833,7 +860,10 @@ class App(customtkinter.CTk):
     def bootstrap_license_flow(self):
         if not self.build_profile.require_license_activation:
             self.license_state = None
-            self.enter_demo_mode()
+            if self.build_profile.auto_login_demo_user:
+                self.enter_demo_mode()
+            else:
+                self.show_login()
             return
 
         pending_state = self.license_service.consume_pending_serial()
@@ -1164,7 +1194,6 @@ class App(customtkinter.CTk):
         self.grid_rowconfigure(1, weight=0)
         self.grid_rowconfigure(2, weight=0)
         self.grid_columnconfigure(0, weight=1)
-        self.grid_columnconfigure(1, weight=0)
 
         self.ping_interval = 15
 
@@ -1174,12 +1203,14 @@ class App(customtkinter.CTk):
         # Cargar configuración pero NO sobrescribir si ya tenemos equipos de main.py
         self.cargar_configuracion_inicial()
 
-        # Crear sistema de pestañas
-        self.tabview = customtkinter.CTkTabview(self)
+        # Crear sistema de pestañas con refresco dinámico
+        self.tabview = customtkinter.CTkTabview(self, command=self._on_tab_changed)
         self.tabview.grid(row=0, column=0, padx=10, pady=(10, 0), sticky="nsew")
 
         self.tab_monitoreo = self.tabview.add("Operacion en Vivo")
-        self.tab_historial = self.tabview.add("Historial Operacional")
+        self.tab_telemetria = self.tabview.add("Telemetría")
+        self.tab_historial = self.tab_telemetria  # Alias de compatibilidad
+        self.telemetria_controller = TelemetryTab(self, self.tab_telemetria)
 
         if self.build_profile.enable_visual_supervision:
             self.tab_camaras = self.tabview.add("Video Vigilancia")
@@ -1197,14 +1228,18 @@ class App(customtkinter.CTk):
             self.setup_user_management_tab()
         self.refresh_license_summary_ui()
 
+        # Configurar layout de grid para la pestaña Operación en Vivo (con gaveta colapsable)
+        self.tab_monitoreo.grid_rowconfigure(0, weight=1)
+        self.tab_monitoreo.grid_rowconfigure(1, weight=0)
+        self.tab_monitoreo.grid_columnconfigure(0, weight=1)
+        self.tab_monitoreo.grid_columnconfigure(1, weight=0)
+        self.tab_monitoreo.grid_columnconfigure(2, weight=0)
+
         self.monitor_frame = customtkinter.CTkScrollableFrame(self.tab_monitoreo)
-        self.monitor_frame.pack(fill="both", expand=True, padx=5, pady=5)
+        self.monitor_frame.grid(row=0, column=0, sticky="nsew", padx=(5, 2), pady=5)
 
-        self.historial_frame = customtkinter.CTkScrollableFrame(self.tab_historial)
-        self.historial_frame.pack(fill="both", expand=True, padx=5, pady=5)
-
-        self.button_frame = customtkinter.CTkFrame(self, fg_color="transparent")
-        self.button_frame.grid(row=1, column=0, sticky="ew", padx=10, pady=(0, 10))
+        self.button_frame = customtkinter.CTkFrame(self.tab_monitoreo, fg_color="transparent")
+        self.button_frame.grid(row=1, column=0, sticky="ew", padx=10, pady=(0, 5))
 
         self.button_frame.grid_columnconfigure(0, weight=1)
         self.button_frame.grid_columnconfigure(1, weight=0)
@@ -1218,8 +1253,41 @@ class App(customtkinter.CTk):
         )
         self.refresh_button.grid(row=0, column=1, padx=10, pady=5)
 
+        # Estado y toggle de la gaveta del panel de control
+        self.sidebar_visible = True
+
+        def toggle_sidebar():
+            self.sidebar_visible = not self.sidebar_visible
+            if self.sidebar_visible:
+                self.sidebar_frame.grid(row=0, column=2, rowspan=2, sticky="nsew", padx=(2, 5), pady=5)
+                self.sidebar_toggle_btn.configure(text="▶")
+            else:
+                self.sidebar_frame.grid_forget()
+                self.sidebar_toggle_btn.configure(text="◀")
+
+        self.toggle_sidebar = toggle_sidebar
+
+        self.sidebar_toggle_btn = customtkinter.CTkButton(
+            self.tab_monitoreo,
+            text="▶",
+            width=22,
+            fg_color="#2B2B2B",
+            hover_color="#3B3B3B",
+            text_color="#00D9FF",
+            font=("Segoe UI", 12, "bold"),
+            corner_radius=4,
+            command=self.toggle_sidebar,
+        )
+        self.sidebar_toggle_btn.grid(row=0, column=1, rowspan=2, sticky="ns", padx=(0, 2), pady=5)
+
+        # Panel de Control colapsable (hijo exclusivo de tab_monitoreo)
+        self.sidebar_frame = customtkinter.CTkScrollableFrame(
+            self.tab_monitoreo, width=225, corner_radius=8, fg_color="#212124"
+        )
+        self.sidebar_frame.grid(row=0, column=2, rowspan=2, sticky="nsew", padx=(2, 5), pady=5)
+
         self.footer_frame = customtkinter.CTkFrame(self, height=40, corner_radius=0)
-        self.footer_frame.grid(row=2, column=0, sticky="ew")
+        self.footer_frame.grid(row=1, column=0, sticky="ew")
 
         self.footer_frame.grid_columnconfigure(0, weight=0)
         self.footer_frame.grid_columnconfigure(1, weight=1)
@@ -1257,9 +1325,6 @@ class App(customtkinter.CTk):
 
         # Iniciar reloj
         self.update_clock()
-
-        self.sidebar_frame = customtkinter.CTkFrame(self, width=200, corner_radius=0)
-        self.sidebar_frame.grid(row=0, column=1, rowspan=3, sticky="nsew")
 
         # Mejora de Logo 75x75 (Ajuste de espacio solicitado por el usuario)
         try:
@@ -1334,9 +1399,10 @@ class App(customtkinter.CTk):
         self.remove_label.grid(row=9, column=0, padx=10, pady=(5, 0), sticky="w")
 
         self.remove_entry = customtkinter.CTkEntry(
-            self.sidebar_frame, placeholder_text="ej. 192.168.1.1"
+            self.sidebar_frame, placeholder_text="ej. 192.168.1.1 o Nombre"
         )
         self.remove_entry.grid(row=10, column=0, padx=10, pady=2, sticky="ew")
+        self.remove_entry.bind("<Return>", lambda e: self.remover_equipo())
 
         self.remove_button = customtkinter.CTkButton(
             self.sidebar_frame, text="Eliminar Equipo", command=self.remover_equipo
@@ -1766,8 +1832,9 @@ class App(customtkinter.CTk):
             role = user["role"]
             full_name = user.get("full_name", username)
             pwd = user.get("password_plain", "********")
-
-            user_info = f"{full_name} ({username}) - Rol: {role}"
+            nombre_final = full_name.strip() if full_name and full_name.strip() else username
+            role_fmt = role.replace("_", " ").title()
+            user_info = f"{nombre_final} • {role_fmt}"
             if self.current_user["role"] == "super_admin":
                 user_info += f" | Clave: {pwd}"
 
@@ -2111,17 +2178,85 @@ class App(customtkinter.CTk):
             self.etiqueta_entry.delete(0, "end")
 
     def remover_equipo(self):
-        ip_a_remover = self.remove_entry.get()
-        if ip_a_remover:
-            nueva_lista = [
-                equipo
-                for equipo in self.equipos_a_monitorear
-                if equipo["ip"] != ip_a_remover
+        query = self.remove_entry.get().strip()
+        if not query:
+            ToastNotification(
+                self,
+                "Atención",
+                "Por favor ingrese la IP o nombre del equipo a eliminar.\nO haga clic directamente en su tarjeta.",
+                color="yellow",
+                duration=3500,
+            )
+            return
+
+        # Buscar por IP exacta primero, luego por etiqueta o nombre
+        equipo_a_eliminar = None
+        for eq in self.equipos_a_monitorear:
+            if eq.get("ip", "").strip() == query:
+                equipo_a_eliminar = eq
+                break
+
+        if not equipo_a_eliminar:
+            for eq in self.equipos_a_monitorear:
+                if eq.get("label", "").strip().lower() == query.lower():
+                    equipo_a_eliminar = eq
+                    break
+
+        if not equipo_a_eliminar:
+            for eq in self.equipos_a_monitorear:
+                if query.lower() in eq.get("label", "").strip().lower():
+                    equipo_a_eliminar = eq
+                    break
+
+        if equipo_a_eliminar:
+            ip_elim = equipo_a_eliminar.get("ip")
+            lbl_elim = equipo_a_eliminar.get("label", ip_elim)
+
+            if ip_elim in self.monitors:
+                try:
+                    self.monitors[ip_elim]._ping_thread_active = False
+                except Exception:
+                    pass
+
+            self.equipos_a_monitorear = [
+                eq for eq in self.equipos_a_monitorear if eq.get("ip") != ip_elim
             ]
-            if len(nueva_lista) < len(self.equipos_a_monitorear):
-                self.equipos_a_monitorear = nueva_lista
-                self.create_monitors()
-                self.remove_entry.delete(0, "end")
+            self.create_monitors()
+            self.remove_entry.delete(0, "end")
+            self.guardar_equipos()
+
+            if hasattr(self, "cameras_tab_controller"):
+                try:
+                    self.cameras_tab_controller._refresh_camera_list()
+                except Exception:
+                    pass
+
+            ToastNotification(
+                self,
+                "Equipo Eliminado",
+                f"Equipo '{lbl_elim}' ({ip_elim}) eliminado exitosamente.\nConfiguración guardada en disco.",
+                color="green",
+                duration=3500,
+            )
+        else:
+            # Obtener información de equipos caídos para orientar al operador
+            ips_desconectadas = [
+                f"{eq.get('label')}: {eq.get('ip')}"
+                for eq in self.equipos_a_monitorear
+                if eq.get("ip") in self.monitors and self.monitors[eq.get("ip")].status == "Desconectado"
+            ]
+            sug_txt = (
+                f"\nEquipo en rojo detectado: {ips_desconectadas[0]}"
+                if ips_desconectadas
+                else "\nPuede hacer clic directamente sobre la tarjeta para seleccionarla."
+            )
+            ToastNotification(
+                self,
+                "IP No Encontrada",
+                f"No existe ningún equipo con '{query}'.{sug_txt}",
+                color="red",
+                duration=4500,
+            )
 
     def guardar_equipos(self):
         try:
@@ -2289,6 +2424,18 @@ class App(customtkinter.CTk):
         filename_only = f"{REPORT_FILE_PREFIX}_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.pdf"
         filename = os.path.join(BASE_PATH, filename_only)
 
+        user = getattr(self, "current_user", {}) or {}
+        full_name = user.get("full_name") or ""
+        username = user.get("username") or ""
+        role = user.get("role", "Operador")
+        role_label = role.replace("_", " ").title()
+
+        nombre_mostrar = full_name if full_name else username
+        if nombre_mostrar:
+            user_display = f"{nombre_mostrar} • {role_label}"
+        else:
+            user_display = f"Operador de Red • {role_label}"
+
         try:
             build_network_report(
                 ReportContext(
@@ -2297,7 +2444,7 @@ class App(customtkinter.CTk):
                     version=VERSION,
                     tagline=APP_TAGLINE,
                     logo_path=os.path.join(ASSETS_PATH, "img", LOGO_FILE),
-                    generated_by=self.current_user["full_name"],
+                    generated_by=user_display,
                     equipos=self.equipos_a_monitorear,
                     monitors=self.monitors,
                     metricas=getattr(self, "metricas", None),
@@ -2323,276 +2470,24 @@ class App(customtkinter.CTk):
                 self, "Error PDF", f"No se pudo generar el reporte: {e}", color="red"
             )
 
+    def _on_tab_changed(self):
+        try:
+            selected_tab = self.tabview.get()
+            if selected_tab in ("Telemetría", "Historial"):
+                if hasattr(self, "telemetria_controller") and self.telemetria_controller:
+                    self.telemetria_controller.actualizar_graficos()
+        except Exception as e:
+            print(f"Error al cambiar pestaña: {e}")
+
     def inicializar_historial(self):
         self.metricas = MetricasHistoricas()
-        titulo = customtkinter.CTkLabel(
-            self.historial_frame,
-            text="📊 Historial y Análisis de Equipos",
-            font=("Arial", 20, "bold"),
-        )
-        titulo.pack(pady=(10, 20))
-        self.graficos_frame = customtkinter.CTkFrame(
-            self.historial_frame, fg_color="transparent"
-        )
-        self.graficos_frame.pack(fill="both", expand=True, padx=10, pady=10)
-
-        self.frame_latencia = customtkinter.CTkFrame(
-            self.graficos_frame, fg_color="#2.2.3B"
-        )
-        self.frame_latencia.pack(fill="both", expand=True, pady=5)
-        customtkinter.CTkLabel(
-            self.frame_latencia,
-            text="📈 Latencia - Últimas 24 Horas",
-            font=("Arial", 16, "bold"),
-        ).pack(pady=2)
-
-        # Ajustar tamaño de figura para ser más responsiva
-        self.fig_latencia = Figure(figsize=(8, 3), facecolor="#2.2.3B", dpi=100)
-        self.ax_latencia = self.fig_latencia.add_subplot(111)
-        self.ax_latencia.set_facecolor("#2.2.3B")
-        self.ax_latencia.tick_params(colors="white", labelsize=8)
-        self.fig_latencia.tight_layout()
-
-        self.canvas_latencia = FigureCanvasTkAgg(self.fig_latencia, self.frame_latencia)
-        self.canvas_latencia.get_tk_widget().pack(
-            fill="both", expand=True, padx=5, pady=5
-        )
-
-        self.frame_gauges = customtkinter.CTkFrame(
-            self.graficos_frame, fg_color="transparent"
-        )
-        self.frame_gauges.pack(fill="x", pady=5)
-        customtkinter.CTkLabel(
-            self.frame_gauges,
-            text="🎯 Disponibilidad - Últimas 24 Horas",
-            font=("Arial", 16, "bold"),
-        ).pack(pady=2)
-
-        self.gauges_container = customtkinter.CTkFrame(
-            self.frame_gauges, fg_color="transparent"
-        )
-        self.gauges_container.pack(fill="x", expand=True)
-
-        # Mejora 1.5: Heatmap de Disponibilidad
-        self.frame_heatmap = customtkinter.CTkFrame(
-            self.graficos_frame, fg_color="#2.2.3B"
-        )
-        self.frame_heatmap.pack(fill="both", expand=True, pady=5)
-        customtkinter.CTkLabel(
-            self.frame_heatmap,
-            text="🗓️ Mapa de Calor - Disponibilidad (24h)",
-            font=("Arial", 16, "bold"),
-        ).pack(pady=2)
-
-        self.fig_heatmap = Figure(figsize=(8, 2.5), facecolor="#2.2.3B", dpi=100)
-        self.ax_heatmap = self.fig_heatmap.add_subplot(111)
-        self.ax_heatmap.set_facecolor("#2.2.3B")
-        self.fig_heatmap.subplots_adjust(left=0.25, bottom=0.2)
-        self.fig_heatmap.tight_layout()
-
-        self.canvas_heatmap = FigureCanvasTkAgg(self.fig_heatmap, self.frame_heatmap)
-        self.canvas_heatmap.get_tk_widget().pack(
-            fill="both", expand=True, padx=5, pady=5
-        )
-
-        self.frame_tabla = customtkinter.CTkFrame(
-            self.graficos_frame, fg_color="#2.2.3B"
-        )
-        self.frame_tabla.pack(fill="both", expand=True, pady=5)
-        customtkinter.CTkLabel(
-            self.frame_tabla,
-            text="📋 Estado Actual de Equipos",
-            font=("Arial", 16, "bold"),
-        ).pack(pady=2)
-        self.tabla_eventos = customtkinter.CTkTextbox(
-            self.frame_tabla, height=150, font=("Courier New", 11)
-        )
-        self.tabla_eventos.pack(fill="both", expand=True, padx=10, pady=10)
-
-        self.btn_actualizar = customtkinter.CTkButton(
-            self.historial_frame,
-            text="🔄 Actualizar Gráficos",
-            command=self.actualizar_graficos,
-        )
-        self.btn_actualizar.pack(pady=10)
-
-        # Primera actualización de gráficos diferida
-        self.after(500, self.actualizar_graficos)
+        if hasattr(self, "telemetria_controller"):
+            self.telemetria_controller.inicializar()
+            self.telemetria_controller.actualizar_graficos()
 
     def actualizar_graficos(self):
-        # --- BLINDAJE ANTI-CRASH ---
-        # Si la ventana o los widgets de historial ya no existen, detener la ejecución.
-        try:
-            if not self.winfo_exists() or not self.historial_frame.winfo_exists():
-                return
-        except Exception:
-            return
-
-        self.ax_latencia.clear()
-        self.ax_latencia.set_facecolor("#2.2.3B")
-        self.ax_latencia.grid(True, alpha=0.2, color="#555")
-        self.ax_latencia.tick_params(colors="white", labelsize=8)
-        colores = ["#00d9ff", "#ff6b6b", "#51cf66", "#ffd43b", "#ff6b9d", "#9775fa"]
-        for i, equipo in enumerate(self.equipos_a_monitorear):
-            ip = equipo["ip"]
-            datos = self.metricas.obtener_datos(ip, periodo_horas=24)
-            if datos and len(datos["timestamps"]) > 0:
-                latencias = datos["latencias"]
-                paso = max(1, len(latencias) // 40)
-                indices = range(0, len(latencias), paso)
-                # Reemplazar None con 0 para evitar crasheos (TypeError)
-                y_values = [latencias[j] if latencias[j] is not None else 0 for j in indices]
-                self.ax_latencia.plot(
-                    [k for k in range(len(indices))],
-                    y_values,
-                    label=equipo["label"],
-                    color=colores[i % len(colores)],
-                    linewidth=2,
-                )
-
-        # Validación de leyenda para evitar UserWarning
-        handles, labels = self.ax_latencia.get_legend_handles_labels()
-        if labels:
-            self.ax_latencia.legend(
-                facecolor="#3B3B3B", edgecolor="#555", labelcolor="white", fontsize=8
-            )
-
-        self.canvas_latencia.draw()
-
-        # Mejora 1.5: Lógica del Heatmap
-        self.ax_heatmap.clear()
-        self.ax_heatmap.set_facecolor("#2.2.3B")
-
-        heatmap_data = []
-        labels_heatmap = []
-        for equipo in self.equipos_a_monitorear:
-            ip = equipo["ip"]
-            labels_heatmap.append(equipo["label"][:20])  # Más caracteres para etiquetas
-            datos = self.metricas.obtener_datos(ip, periodo_horas=24)
-            if datos and datos["estados"]:
-                bloques = np.array_split(datos["estados"], 24)
-                dispo_bloques = []
-                for b in bloques:
-                    if len(b) > 0:
-                        online_count = sum(
-                            1 for s in b if s == 1
-                        )  # Corregido: s es int (1 o 0)
-                        dispo_bloques.append(online_count / len(b))
-                    else:
-                        dispo_bloques.append(0)
-                heatmap_data.append(dispo_bloques)
-            else:
-                heatmap_data.append([0] * 24)
-
-        if heatmap_data:
-            im = self.ax_heatmap.imshow(
-                heatmap_data, cmap="RdYlGn", aspect="auto", vmin=0, vmax=1
-            )
-            self.ax_heatmap.set_yticks(range(len(labels_heatmap)))
-            self.ax_heatmap.set_yticklabels(labels_heatmap, color="white", fontsize=8)
-            self.ax_heatmap.set_xticks(range(0, 24, 2))
-            self.ax_heatmap.set_xticklabels(
-                [f"{h}h" for h in range(0, 24, 2)], color="white", fontsize=8
-            )
-            self.ax_heatmap.tick_params(axis="both", which="both", length=0)
-
-        self.canvas_heatmap.draw()
-
-        for widget in self.gauges_container.winfo_children():
-            widget.destroy()
-
-        # Configurar grid para gauges (máximo 5 por fila)
-        for i in range(5):
-            self.gauges_container.grid_columnconfigure(i, weight=1)
-
-        for i, equipo in enumerate(self.equipos_a_monitorear):
-            uptime = self.metricas.calcular_uptime(equipo["ip"])
-
-            row = i // 5
-            col = i % 5
-
-            g_frame = customtkinter.CTkFrame(self.gauges_container, fg_color="#2.2.3B")
-            g_frame.grid(row=row, column=col, padx=5, pady=5, sticky="nsew")
-
-            color = (
-                "#51cf66" if uptime >= 99 else "#ffd43b" if uptime >= 95 else "#ff6b6b"
-            )
-
-            # Dibujar Semicírculo (Gauge)
-            canvas_w, canvas_h = 120, 70
-            canvas = tk.Canvas(
-                g_frame,
-                width=canvas_w,
-                height=canvas_h,
-                bg="#2.2.3B",
-                highlightthickness=0,
-            )
-            canvas.pack(pady=2)
-
-            # Fondo del arco (gris)
-            canvas.create_arc(
-                10,
-                10,
-                110,
-                110,
-                start=0,
-                extent=180,
-                outline="#444",
-                width=8,
-                style="arc",
-            )
-            # Arco de progreso
-            extent = (uptime / 100) * 180
-            canvas.create_arc(
-                10,
-                10,
-                110,
-                110,
-                start=180,
-                extent=-extent,
-                outline=color,
-                width=8,
-                style="arc",
-            )
-
-            # Texto de porcentaje al centro
-            canvas.create_text(
-                60, 55, text=f"{uptime:.1f}%", fill="white", font=("Arial", 14, "bold")
-            )
-
-            customtkinter.CTkLabel(
-                g_frame,
-                text=equipo["label"][:15],
-                font=("Arial", 10, "bold"),
-                text_color="#AAA",
-            ).pack(pady=(0, 5))
-
-        # Mejora 1.6: Tabla de Eventos Pro
-        self.tabla_eventos.delete("0.0", "end")
-        header = f"┌{'─' * 25}┬{'─' * 12}┬{'─' * 12}┬{'─' * 10}┐\n"
-        header += (
-            f"│ {'Equipo':<23} │ {'Estado':<10} │ {'Latencia':<10} │ {'Hora':<8} │\n"
-        )
-        header += f"├{'─' * 25}┼{'─' * 12}┼{'─' * 12}┼{'─' * 10}┤\n"
-        self.tabla_eventos.insert("end", header)
-
-        for ip, monitor in self.monitors.items():
-            datos = self.metricas.obtener_datos(ip, periodo_horas=1)
-            lat = (
-                f"{datos['latencias'][-1]:.1f}ms"
-                if datos and datos["latencias"]
-                else "---"
-            )
-            hora = datetime.datetime.now().strftime("%H:%M:%S")
-            status_icon = "🟢" if monitor.status == "Conectado" else "🔴"
-
-            row = f"│ {status_icon} {monitor.label[:20]:<20} │ {monitor.status:<10} │ {lat:<10} │ {hora:<8} │\n"
-            self.tabla_eventos.insert("end", row)
-
-        footer = f"└{'─' * 25}┴{'─' * 12}┴{'─' * 12}┴{'─' * 10}┘"
-        self.tabla_eventos.insert("end", footer)
-
-        self.after(60000, self.actualizar_graficos)
+        if hasattr(self, "telemetria_controller"):
+            self.telemetria_controller.actualizar_graficos()
 
 
 if __name__ == "__main__":

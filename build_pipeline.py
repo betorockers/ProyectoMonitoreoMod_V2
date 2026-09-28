@@ -1,23 +1,25 @@
-﻿import os
+import os
+import shutil
 import subprocess
 import sys
 import time
 
 # ── Archivos a transpilar con Cython ──────────────────────────────────────
 TARGET_FILES = [
-    "monitor.py",
-    "ping_logic.py",
     "network_tools_logic.py",
-    "auth/auth_manager.py",
-    "database/key_manager.py",
+    "auth_manager.py",
+    "key_manager.py",
+    "secure_config_manager.py",
     "licensing/license_service.py",
-    "licensing/license_crypto.py"
+    "licensing/license_crypto.py",
+    "licensing/license_storage.py",
+    "licensing/machine_fingerprint.py",
 ]
 
 # ── Configuracion de firma ─────────────────────────────────────────────────
 CERT_SCRIPT   = r"E:\Certificados\firmar_anvic.ps1"
-INSTALLER_OUT = r"e:\AnvicNetworkMonitorV2.1\Output\Instalador_Anvic_Network_Sentinel_v2.2.3.exe"
-DIST_EXE      = r"e:\AnvicNetworkMonitorV2.1\dist\AnvicNetworkSentinel.exe"
+INSTALLER_OUT = r"e:\AnvicNetworkMonitorV2.1\Output\ANS_Setup_V2.2.3.exe"
+DIST_EXE      = r"e:\AnvicNetworkMonitorV2.1\dist\AnvicNetworkSentinel\AnvicNetworkSentinel.exe"
 
 # Servidores de timestamp RFC 3161 (se prueba en orden)
 TIMESTAMP_SERVERS = [
@@ -106,45 +108,53 @@ def sign_file(filepath, signtool, cert_name="Anvic Network Sentinel"):
 
 def main():
     print("\n" + "="*60)
-    print("  ANVIC NETWORK SENTINEL v2.2.3 — BUILD PIPELINE")
+    print("  ANVIC NETWORK SENTINEL v2.2.3 — BUILD PIPELINE (COMERCIAL DÍA CERO)")
     print("="*60 + "\n")
 
-    print("=== PASO 1: Transpilacion Cython ===")
-    subprocess.run(["python", "build_cython.py"], check=True)
+    print("=== PASO 0: Configurando Perfil Comercial Día Cero ===")
+    comm_profile = os.path.join(os.path.dirname(__file__), "build_profiles", "commercial.json")
+    target_profile = os.path.join(os.path.dirname(__file__), "build_profile.json")
+    if os.path.exists(comm_profile):
+        shutil.copy2(comm_profile, target_profile)
+        print("  [OK] Perfil Comercial activo (sin marcas dev, con licenciamiento industrial y siembra inicial).")
+
+    print("\n=== PASO 1: Transpilacion Cython ===")
+    subprocess.run([sys.executable, "build_cython.py"], check=True)
 
     print("\n=== PASO 2: Ocultando archivos .py (Backups) ===")
     rename_to_bak()
 
     try:
         print("\n=== PASO 3: Empaquetando con PyInstaller ===")
-        subprocess.run(["pyinstaller", "--clean", "-y", "AnvicNetworkSentinel.spec"], check=True)
+        subprocess.run([sys.executable, "-m", "PyInstaller", "--clean", "-y", "AnvicNetworkSentinel.spec"], check=True)
     finally:
         print("\n=== PASO 4: Restaurando archivos .py ===")
         restore_from_bak()
 
-    print("\n=== PASO 5: Compilando instalador Inno Setup ===")
+    print("\n=== PASO 5: Firma Digital de Ejecutable Principal (DIST_EXE) ===")
+    signtool = get_signtool_path()
+    print(f"  signtool: {signtool}")
+    sign_file(DIST_EXE, signtool)
+
+    print("\n=== PASO 6: Compilando instalador Inno Setup ===")
     iscc_path = get_iscc_path()
-    signtool_path = get_signtool_path()
     if iscc_path:
-        # Usamos $q para las comillas internas (ISCC las reemplaza por comillas reales)
-        sign_cmd = f'$q{signtool_path}$q sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 /n $qAnvic Network Sentinel$q /a $f'
-        
-        cmd_line = f'"{iscc_path}" "/SMySignTool={sign_cmd}" "e:\\AnvicNetworkMonitorV2.1\\installer.iss"'
+        sign_cmd = f'$q{signtool}$q sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 /n $qAnvic Network Sentinel$q /a $f'
+        cmd_line = f'"{iscc_path}" /dUseSignTool "/SMySignTool={sign_cmd}" "e:\\AnvicNetworkMonitorV2.1\\installer.iss"'
         print(f"Ejecutando ISCC: {cmd_line}")
-        subprocess.run(cmd_line, shell=True, check=True)
-        print("[OK] Instalador generado (y firmado internamente).")
+        try:
+            subprocess.run(cmd_line, shell=True, check=True)
+            print("[OK] Instalador generado y firmado con Inno Setup.")
+        except subprocess.CalledProcessError:
+            print("[WARN] Falló firma interna en ISCC. Compilando instalador limpio y firmando post-proceso...")
+            cmd_line_fallback = f'"{iscc_path}" "e:\\AnvicNetworkMonitorV2.1\\installer.iss"'
+            subprocess.run(cmd_line_fallback, shell=True, check=True)
+            print("[OK] Instalador generado con Inno Setup (modo limpio).")
     else:
         print("[ERROR] No se encontro ISCC.exe. Instala Inno Setup.")
         sys.exit(1)
 
-    print("\n=== PASO 6: Firma Digital Authenticode SHA-256 ===")
-    signtool = get_signtool_path()
-    print(f"  signtool: {signtool}")
-
-    # Firmar el .exe de PyInstaller (binario interno)
-    sign_file(DIST_EXE, signtool)
-
-    # Firmar el instalador final
+    print("\n=== PASO 7: Firma Digital Authenticode del Instalador ===")
     sign_file(INSTALLER_OUT, signtool)
 
     # Verificar la firma del instalador

@@ -8,7 +8,43 @@ import asyncio
 import platform
 import subprocess
 import re
+import time
 from icmplib import async_multiping
+
+def ping_ip(ip: str, monitor_widget, interval: int = 15):
+    """Ejecuta ping síncrono por host y actualiza el monitor de forma segura."""
+    param = "-n" if platform.system().lower() == "windows" else "-c"
+    command = ["ping", param, "1", "-w", "2000", ip]
+    si = None
+    if platform.system().lower() == "windows":
+        si = subprocess.STARTUPINFO()
+        si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+
+    while getattr(monitor_widget, "_ping_thread_active", True):
+        latencia = None
+        try:
+            res = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                timeout=3,
+                startupinfo=si,
+            )
+            if res.returncode == 0:
+                match = re.search(r"time[<=](\d+(?:\.\d+)?)ms", res.stdout, re.IGNORECASE)
+                latencia = float(match.group(1)) if match else 1.0
+                status = "Conectado"
+            else:
+                status = "Desconectado"
+        except Exception:
+            status = "Desconectado"
+
+        mac = get_mac_address(ip) if status == "Conectado" else getattr(monitor_widget, "mac", "No disponible")
+        monitor_widget.update_status(status, mac, latencia)
+
+        if interval <= 0 or not getattr(monitor_widget, "_ping_thread_active", True):
+            break
+        time.sleep(interval)
 
 def get_mac_address(ip: str) -> str:
     """Busca la dirección MAC en la tabla ARP."""

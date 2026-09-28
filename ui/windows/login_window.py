@@ -197,20 +197,25 @@ class SetupWindow(customtkinter.CTkToplevel):
             font=("Arial", 14), text_color="#AAAAAA",
         ).pack(pady=(0, 20))
 
-        self.user_entry = customtkinter.CTkEntry(
-            self, placeholder_text="Usuario Maestro", width=300, height=40
+        self.fullname_entry = customtkinter.CTkEntry(
+            self, placeholder_text="Nombre Real / Operador (Opcional)", width=300, height=40
         )
-        self.user_entry.pack(pady=10)
+        self.fullname_entry.pack(pady=6)
+
+        self.user_entry = customtkinter.CTkEntry(
+            self, placeholder_text="Usuario Maestro (Login)", width=300, height=40
+        )
+        self.user_entry.pack(pady=6)
 
         self.pass_entry = customtkinter.CTkEntry(
             self, placeholder_text="Contraseña", show="*", width=300, height=40
         )
-        self.pass_entry.pack(pady=10)
+        self.pass_entry.pack(pady=6)
 
         self.confirm_entry = customtkinter.CTkEntry(
             self, placeholder_text="Confirmar Contraseña", show="*", width=300, height=40
         )
-        self.confirm_entry.pack(pady=10)
+        self.confirm_entry.pack(pady=6)
 
         customtkinter.CTkLabel(
             self,
@@ -225,7 +230,7 @@ class SetupWindow(customtkinter.CTkToplevel):
             width=300, height=45,
             font=("Arial", 14, "bold"),
             fg_color="#51cf66", hover_color="#40c057",
-        ).pack(pady=30)
+        ).pack(pady=20)
 
         self.error_lbl = customtkinter.CTkLabel(self, text="", text_color="#ff6b6b")
         self.error_lbl.pack(pady=5)
@@ -234,17 +239,18 @@ class SetupWindow(customtkinter.CTkToplevel):
         self.master.destroy()
 
     def _perform_setup(self) -> None:
-        user = self.user_entry.get()
+        fullname = self.fullname_entry.get().strip() or "Administrador Maestro"
+        user = self.user_entry.get().strip()
         p1, p2 = self.pass_entry.get(), self.confirm_entry.get()
 
         if not user or not p1 or not p2:
-            self.error_lbl.configure(text="Todos los campos son obligatorios")
+            self.error_lbl.configure(text="Todos los campos marcados son obligatorios")
             return
         if p1 != p2:
             self.error_lbl.configure(text="Las contraseñas no coinciden")
             return
 
-        success, msg = self.auth.create_initial_superuser(user, p1)
+        success, msg = self.auth.create_initial_superuser(user, p1, full_name=fullname)
         if success:
             user_data = self.auth.authenticate(user, p1)
             self.destroy()

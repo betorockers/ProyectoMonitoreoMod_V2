@@ -1,4 +1,4 @@
-﻿; Script de instalacion para Anvic Network Sentinel v2.2.3
+; Script de instalacion para Anvic Network Sentinel v2.2.3
 ; Inno Setup moderno, per-user y con enfoque de menor friccion operativa.
 
 #ifndef MyAppName
@@ -58,7 +58,10 @@ WizardImageFile=assets\img\logoAnvic.bmp
 WizardSmallImageFile=assets\img\logoAnvic.bmp
 WizardStyle=modern
 Compression=lzma2/ultra64
+#ifdef UseSignTool
 SignTool=MySignTool
+SignedUninstaller=yes
+#endif
 LZMANumBlockThreads=4
 SolidCompression=yes
 OutputDir=Output
@@ -95,6 +98,9 @@ Name: "spanish"; MessagesFile: "compiler:Languages\Spanish.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "Crear acceso directo en el escritorio"; GroupDescription: "Accesos directos"; Flags: unchecked
+
+[Dirs]
+Name: "{app}"; Permissions: users-modify
 
 [Files]
 Source: "installer_prereqs\VC_redist.x64.exe"; DestDir: "{tmp}"; Flags: ignoreversion deleteafterinstall
