@@ -20,6 +20,7 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.platypus import (
     Image as PDFImage,
+    KeepTogether,
     PageBreak,
     Paragraph,
     SimpleDocTemplate,
@@ -43,7 +44,16 @@ class ReportContext:
     tls_strict: bool
     cameras_count: int
     camera_max_streams: int
+    empresa_cliente: str = "Anvic Seguridad Integral"
+    sitio_planta: str = "Planta Quilicura - Renca"
+    sla_objetivo: float = 99.5
+    incluir_cctv: bool = False
+    periodo_evaluado: str = "Últimas 24 Horas"
     osint_data: dict | None = None
+    modo_telemetria: str = "Semanal (7D x 24h)"
+    filtro_host: str = "Todos los Equipos"
+    turno_inicio: str = "07:00"
+    turno_fin: str = "18:00"
 
 
 def _status_color(status: str) -> str:
@@ -63,6 +73,7 @@ def _paragraph_style(
     leading: int | None = None,
     bold: bool = False,
     alignment: int = 0,
+    keepWithNext: bool = False,
 ) -> ParagraphStyle:
     base = getSampleStyleSheet()["BodyText"]
     return ParagraphStyle(
@@ -73,6 +84,7 @@ def _paragraph_style(
         leading=leading or (size + 3),
         textColor=colors.HexColor(color),
         alignment=alignment,
+        keepWithNext=keepWithNext,
     )
 
 
@@ -82,7 +94,23 @@ def _build_summary_cards(ctx: ReportContext, styles: dict[str, ParagraphStyle]) 
     total_disconnects = 0
     total_microcortes = 0
     total_downtime_sec = 0.0
-    uptimes: list[float] = []
+    max_downtime_sec = 0.0
+    uptimes_periodo: list[float] = []
+
+    rango_ini = None
+    rango_fin = None
+    periodo_horas = 24
+    now_dt = datetime.now()
+    modo = getattr(ctx, "modo_telemetria", "Semanal (7D x 24h)")
+    if "Turno" in modo:
+        from metrics_manager import obtener_rango_turno_reciente
+        t_ini = getattr(ctx, "turno_inicio", "07:00")
+        t_fin = getattr(ctx, "turno_fin", "18:00")
+        shift_start, shift_end = obtener_rango_turno_reciente(t_ini, t_fin, now_dt)
+        rango_ini = shift_start
+        rango_fin = min(now_dt, shift_end)
+    elif "Semanal" in modo:
+        periodo_horas = 168
 
     for equipo in ctx.equipos:
         ip = equipo["ip"]
@@ -92,32 +120,59 @@ def _build_summary_cards(ctx: ReportContext, styles: dict[str, ParagraphStyle]) 
         total_disconnects += int(getattr(monitor, "desconexiones_count", 0) or 0)
 
         if ctx.metricas:
-            uptimes.append(float(ctx.metricas.calcular_uptime(ip)))
             if hasattr(ctx.metricas, "analizar_desconexiones_y_downtime"):
-                analisis = ctx.metricas.analizar_desconexiones_y_downtime(ip, periodo_horas=24)
+                analisis = ctx.metricas.analizar_desconexiones_y_downtime(
+                    ip,
+                    periodo_horas=periodo_horas,
+                    rango_inicio=rango_ini,
+                    rango_fin=rango_fin,
+                )
                 total_microcortes += analisis.get("microcortes_count", 0)
-                total_downtime_sec += analisis.get("downtime_segundos", 0.0)
+                dt_dev = analisis.get("downtime_segundos", 0.0)
+                total_downtime_sec += dt_dev
+                if dt_dev > max_downtime_sec:
+                    max_downtime_sec = dt_dev
+                uptimes_periodo.append(analisis.get("uptime_periodo", 100.0))
+            else:
+                uptimes_periodo.append(float(ctx.metricas.calcular_uptime(ip)))
 
-    avg_uptime = sum(uptimes) / len(uptimes) if uptimes else 100.0
+    avg_uptime = sum(uptimes_periodo) / len(uptimes_periodo) if uptimes_periodo else 100.0
     offline = max(total_devices - online, 0)
     tls_mode = "Estricto" if ctx.tls_strict else "Flexible"
 
-    downtime_str = (
-        ctx.metricas._formatear_duracion(total_downtime_sec)
+    fmt_dur = (
+        ctx.metricas._formatear_duracion
         if ctx.metricas and hasattr(ctx.metricas, "_formatear_duracion")
-        else f"{int(total_downtime_sec)}s"
+        else lambda s: f"{int(s)}s"
     )
+
+    if total_downtime_sec <= 0:
+        downtime_display = "0s <font size=7.5 color='#16A34A'><b>(100% Operativo)</b></font>"
+    else:
+        avg_dt = total_downtime_sec / total_devices if total_devices > 0 else 0.0
+        downtime_display = (
+            f"<b>{fmt_dur(avg_dt)}</b> <font size=7.5 color='#64748B'>prom</font><br/>"
+            f"<font size=7.5 color='#64748B'>Máx: </font><font size=8 color='#DC2626'><b>{fmt_dur(max_downtime_sec)}</b></font>"
+        )
+
+    cumplimiento_tag = " (Cumplido)" if avg_uptime >= ctx.sla_objetivo else " (Incumplido)"
+    uptime_display = f"{avg_uptime:.1f}%{cumplimiento_tag}"
 
     cards = [
         ("Activos monitoreados", str(total_devices)),
         ("Equipos en línea", str(online)),
         ("Equipos fuera de línea", str(offline)),
-        ("SLA Uptime promedio", f"{avg_uptime:.1f}%"),
+        (f"SLA Uptime ({ctx.periodo_evaluado})", uptime_display),
         ("Microcortes detectados", str(total_microcortes)),
-        ("Downtime acumulado", downtime_str),
-        ("Supervisión CCTV", f"{ctx.cameras_count} Cám. ({ctx.camera_max_streams} St)"),
-        ("Política TLS", tls_mode),
+        (f"Downtime Red ({ctx.periodo_evaluado})", downtime_display),
     ]
+
+    if ctx.incluir_cctv:
+        cards.append(("Supervisión CCTV", f"{ctx.cameras_count} Cám. ({ctx.camera_max_streams} St)"))
+    else:
+        cards.append(("SLA Meta Contractual", f"{ctx.sla_objetivo:.1f}%"))
+
+    cards.append(("Política TLS", tls_mode))
 
     rows = []
     row: list = []
@@ -165,10 +220,25 @@ def _build_devices_table(ctx: ReportContext, styles: dict[str, ParagraphStyle]) 
             Paragraph("Uptime 30d", styles["table_header"]),
             Paragraph("Latencia 1h", styles["table_header"]),
             Paragraph("Microcortes", styles["table_header"]),
-            Paragraph("Downtime Total", styles["table_header"]),
+            Paragraph(f"Downtime ({ctx.periodo_evaluado})", styles["table_header"]),
             Paragraph("Diagnóstico Operacional", styles["table_header"]),
         ]
     ]
+
+    rango_ini = None
+    rango_fin = None
+    periodo_horas = 24
+    now_dt = datetime.now()
+    modo = getattr(ctx, "modo_telemetria", "Semanal (7D x 24h)")
+    if "Turno" in modo:
+        from metrics_manager import obtener_rango_turno_reciente
+        t_ini = getattr(ctx, "turno_inicio", "07:00")
+        t_fin = getattr(ctx, "turno_fin", "18:00")
+        shift_start, shift_end = obtener_rango_turno_reciente(t_ini, t_fin, now_dt)
+        rango_ini = shift_start
+        rango_fin = min(now_dt, shift_end)
+    elif "Semanal" in modo:
+        periodo_horas = 168
 
     for equipo in ctx.equipos:
         ip = equipo["ip"]
@@ -190,7 +260,12 @@ def _build_devices_table(ctx: ReportContext, styles: dict[str, ParagraphStyle]) 
                     avg_lat = f"{lat_value:.1f} ms"
 
             if hasattr(ctx.metricas, "analizar_desconexiones_y_downtime"):
-                analisis = ctx.metricas.analizar_desconexiones_y_downtime(ip, periodo_horas=24)
+                analisis = ctx.metricas.analizar_desconexiones_y_downtime(
+                    ip,
+                    periodo_horas=periodo_horas,
+                    rango_inicio=rango_ini,
+                    rango_fin=rango_fin,
+                )
                 microcortes_count = analisis.get("microcortes_count", 0)
                 downtime_str = analisis.get("downtime_str", "0s")
 
@@ -224,7 +299,7 @@ def _build_devices_table(ctx: ReportContext, styles: dict[str, ParagraphStyle]) 
             ]
         )
 
-    # Ancho total exacto para coincidir con el margen útil (246 mm)
+    row_pad = 1.8 if len(ctx.equipos) > 10 else 3.5
     table = Table(
         data,
         colWidths=[48 * mm, 25 * mm, 28 * mm, 20 * mm, 21 * mm, 21 * mm, 24 * mm, 59 * mm],
@@ -238,8 +313,8 @@ def _build_devices_table(ctx: ReportContext, styles: dict[str, ParagraphStyle]) 
                 ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#CBD5E1")),
                 ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F8FAFC")]),
                 ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                ("TOPPADDING", (0, 0), (-1, -1), 4),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                ("TOPPADDING", (0, 0), (-1, -1), row_pad),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), row_pad),
             ]
         )
     )
@@ -258,11 +333,51 @@ def _build_visuals(ctx: ReportContext, styles: dict[str, ParagraphStyle], chart_
         return [Paragraph("No hay datos históricos suficientes para analítica visual.", styles["muted"])]
 
     elements: list = []
-    palette = ["#0284C7", "#16A34A", "#D97706", "#DC2626", "#7C3AED", "#0D9488"]
+    palette = ["#0284C7", "#16A34A", "#D97706", "#DC2626", "#7C3AED", "#0D9488", "#E11D48", "#2563EB"]
     chart_width = max(chart_width, 520)
 
-    # ── 1. Gráfico de Latencia Avanzado (Estilo Grafana con Umbrales SLA) ─────────
-    fig_lat = Figure(figsize=(12.0, 3.4), facecolor="white", dpi=100)
+    # 1. Obtener telemetría completa unificada del motor analítico
+    payload = None
+    if hasattr(ctx.metricas, "obtener_telemetria_completa"):
+        payload = ctx.metricas.obtener_telemetria_completa(
+            equipos=ctx.equipos,
+            filtro_host=getattr(ctx, "filtro_host", "Todos los Equipos"),
+            modo=getattr(ctx, "modo_telemetria", "Semanal (7D x 24h)"),
+            turno_inicio=getattr(ctx, "turno_inicio", "07:00"),
+            turno_fin=getattr(ctx, "turno_fin", "18:00"),
+        )
+
+    # 2. Extraer o armar datos de Heatmap primero para determinar el layout dinámico
+    hm = payload.get("heatmap_data") if payload else None
+    if not hm and hasattr(ctx.metricas, "obtener_matriz_semanal"):
+        matriz_info = ctx.metricas.obtener_matriz_semanal()
+        if matriz_info:
+            hm = {
+                "mode": "Semanal (7D x 24h)",
+                "title": "Matriz Semanal de Disponibilidad (Lunes a Domingo × 24 Horas)",
+                "rango_subtitulo": "Últimos 7 Días • Monitoreo continuo 24 horas",
+                "ncols": 24,
+                "nrows": 7,
+                "col_labels": matriz_info["horas_etiquetas"],
+                "row_labels": matriz_info["dias_etiquetas"],
+                "matriz_disp": matriz_info["disponibilidad"],
+            }
+
+    # Determinación dinámica de distribución ejecutiva:
+    # Si el heatmap por equipos tiene más de 10 activos (nrows > 10),
+    # no deben forzarse en la misma hoja para no comprometer la legibilidad de cada fila.
+    # En ese caso, Latencia toma la Hoja 2 con altura generosa y Heatmap pasa a la Hoja 3 con altura completa.
+    # Si son 10 equipos o menos (o modo semanal de 7 días), comparten dinámicamente la Hoja 2
+    # con proporciones balanceadas y espacio de aire entre ellos.
+    nrows = hm.get("nrows", 0) if hm else 0
+    is_by_equipment = "Por Equipo" in hm.get("mode", "") if hm else False
+    separate_pages = is_by_equipment and (nrows > 10)
+
+    # ── 1. Gráfico de Latencia Avanzado (Adaptado al modo activo) ─────────
+    fig_lat_h = 3.6 if separate_pages else 2.65
+    lat_height = 220 if separate_pages else 155
+
+    fig_lat = Figure(figsize=(12.0, fig_lat_h), facecolor="white", dpi=100)
     ax_lat = fig_lat.add_subplot(111)
     ax_lat.set_facecolor("#FAFAFA")
     ax_lat.grid(True, linestyle="--", alpha=0.35, color="#94A3B8")
@@ -272,75 +387,103 @@ def _build_visuals(ctx: ReportContext, styles: dict[str, ParagraphStyle], chart_
     has_lat_data = False
     all_latencies = []
 
-    for index, equipo in enumerate(ctx.equipos):
-        datos = ctx.metricas.obtener_datos(equipo["ip"], periodo_horas=24)
-        if datos and datos["latencias"] and datos["timestamps"]:
-            ts_list = datos["timestamps"]
-            lats = datos["latencias"]
-            color = palette[index % len(palette)]
-            
-            # Submuestreo inteligente para evitar saturación visual en 24h
-            step = max(1, len(lats) // 60)
-            x_vals = ts_list[::step]
-            y_vals = [lats[k] if lats[k] is not None else 0 for k in range(0, len(lats), step)]
+    if payload and payload.get("serie_latencia"):
+        for i, serie in enumerate(payload["serie_latencia"]):
+            color = palette[i % len(palette)]
+            x_vals = serie.get("x_vals", [])
+            y_vals = serie.get("y_vals", [])
+            if x_vals and y_vals:
+                ax_lat.plot(x_vals, y_vals, label=serie["label"][:20], linewidth=1.5, color=color)
+                ax_lat.fill_between(x_vals, y_vals, alpha=0.08, color=color)
+                has_lat_data = True
+                all_latencies.extend([y for y in y_vals if y > 0])
 
-            ax_lat.plot(x_vals, y_vals, label=equipo["label"][:20], linewidth=1.5, color=color)
-            ax_lat.fill_between(x_vals, y_vals, alpha=0.08, color=color)
-            has_lat_data = True
-            all_latencies.extend([y for y in y_vals if y > 0])
+        if payload.get("latencia_min_x") and payload.get("latencia_max_x"):
+            ax_lat.set_xlim(payload["latencia_min_x"], payload["latencia_max_x"])
 
-    if has_lat_data:
-        # Línea de umbral de SLA
-        ax_lat.axhline(y=100, color="#DC2626", linestyle="--", linewidth=1.1, label="Límite SLA Advertencia (100 ms)", alpha=0.8)
-        
-        ax_lat.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M"))
-        ax_lat.legend(fontsize=7, loc="upper right", ncol=4, frameon=True, facecolor="white", edgecolor="#CBD5E1")
-        fig_lat.autofmt_xdate(rotation=0, ha="center")
-        fig_lat.tight_layout()
+        lat_title = payload.get("latencia_title", "Telemetría de Latencia & Rendimiento Temporal")
+        stats_bar = payload.get("stats_text", "")
+    else:
+        # Fallback a consulta directa de 24h
+        for index, equipo in enumerate(ctx.equipos):
+            datos = ctx.metricas.obtener_datos(equipo["ip"], periodo_horas=24)
+            if datos and datos["latencias"] and datos["timestamps"]:
+                ts_list = datos["timestamps"]
+                lats = datos["latencias"]
+                color = palette[index % len(palette)]
+                step = max(1, len(lats) // 60)
+                x_vals = ts_list[::step]
+                y_vals = [lats[k] if lats[k] is not None else 0 for k in range(0, len(lats), step)]
+                ax_lat.plot(x_vals, y_vals, label=equipo["label"][:20], linewidth=1.5, color=color)
+                ax_lat.fill_between(x_vals, y_vals, alpha=0.08, color=color)
+                has_lat_data = True
+                all_latencies.extend([y for y in y_vals if y > 0])
 
-        elements.append(Paragraph("Telemetría de Latencia & Rendimiento Temporal", styles["section"]))
-        elements.append(Spacer(1, 2))
-        
+        lat_title = f"Telemetría de Latencia & Rendimiento Temporal ({ctx.periodo_evaluado})"
         min_l = min(all_latencies) if all_latencies else 0.0
         avg_l = sum(all_latencies) / len(all_latencies) if all_latencies else 0.0
         max_l = max(all_latencies) if all_latencies else 0.0
         p95_l = np.percentile(all_latencies, 95) if all_latencies else 0.0
-
         stats_bar = (
-            f"<b>Métricas Consolidadas (24h):</b> &nbsp;&nbsp; "
-            f"Mínima: <b>{min_l:.1f} ms</b> &nbsp;│&nbsp; "
-            f"Promedio: <b>{avg_l:.1f} ms</b> &nbsp;│&nbsp; "
-            f"Percentil 95: <b>{p95_l:.1f} ms</b> &nbsp;│&nbsp; "
-            f"Máxima: <b>{max_l:.1f} ms</b>"
+            f"Métricas ({ctx.periodo_evaluado}):  Mín: {min_l:.1f}ms  │  Prom: {avg_l:.1f}ms  "
+            f"│  P95: {p95_l:.1f}ms  │  Máx: {max_l:.1f}ms"
         )
-        elements.append(Paragraph(stats_bar, styles["muted_highlight"]))
-        elements.append(Spacer(1, 4))
-        elements.append(_build_chart_image(fig_lat, width=chart_width, height=185))
-        elements.append(Spacer(1, 10))
 
-    # ── 2. Nuevo Mapa de Calor Discreto (Pastillas Redondeadas 7 Días × 24h) ───────
-    matriz_info = (
-        ctx.metricas.obtener_matriz_semanal()
-        if hasattr(ctx.metricas, "obtener_matriz_semanal")
-        else None
-    )
+    lat_items: list = []
+    if has_lat_data:
+        ax_lat.axhline(y=100, color="#DC2626", linestyle="--", linewidth=1.1, label="Límite SLA Advertencia (100 ms)", alpha=0.8)
+        modo = getattr(ctx, "modo_telemetria", "")
+        if "Semanal" in modo:
+            ax_lat.xaxis.set_major_formatter(mdates.DateFormatter("%d/%m %H:%M"))
+        else:
+            ax_lat.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M"))
 
-    if matriz_info:
-        matriz_disp = matriz_info["disponibilidad"]
-        dias_etiquetas = matriz_info["dias_etiquetas"]
-        horas_etiquetas = matriz_info["horas_etiquetas"]
+        ax_lat.legend(
+            fontsize=7.5 if separate_pages else 7.0,
+            loc="upper right",
+            ncol=4,
+            frameon=True,
+            facecolor="white",
+            edgecolor="#CBD5E1",
+        )
+        fig_lat.autofmt_xdate(rotation=0, ha="center")
+        fig_lat.tight_layout()
 
-        fig_hm = Figure(figsize=(12.0, 3.2), facecolor="white", dpi=120)
+        lat_items = [
+            Paragraph(lat_title, styles["section"]),
+            Spacer(1, 2),
+            Paragraph(f"<b>{stats_bar}</b>", styles["muted_highlight"]),
+            Spacer(1, 4),
+            _build_chart_image(fig_lat, width=chart_width, height=lat_height),
+        ]
+
+    # ── 2. Mapa de Calor Discreto (Pastillas Redondeadas Dinámico) ─────────
+    hm_items: list = []
+    if hm:
+        matriz_disp = hm["matriz_disp"]
+        row_labels = hm["row_labels"]
+        col_labels = hm["col_labels"]
+        nrows = hm["nrows"]
+        ncols = hm["ncols"]
+
+        if separate_pages:
+            fig_hm_h = min(7.5, max(4.0, 0.28 * nrows + 1.2))
+            hm_height = min(430, max(260, int(19 * nrows + 60)))
+            ytick_font = 8.5 if nrows <= 12 else (8.0 if nrows <= 16 else 7.2)
+            top_margin = 0.91
+            bottom_margin = 0.08
+        else:
+            fig_hm_h = max(2.8, min(3.8, 0.24 * nrows + 1.3)) if is_by_equipment else 2.9
+            hm_height = min(228, max(170, int(18 * nrows + 48))) if is_by_equipment else 180
+            ytick_font = 8.5
+            top_margin = 0.88
+            bottom_margin = 0.10
+
+        fig_hm = Figure(figsize=(12.0, fig_hm_h), facecolor="white", dpi=100)
         ax_hm = fig_hm.add_subplot(111)
         ax_hm.set_facecolor("#FAFAFA")
 
-        # Escala cromática discreta de 5 niveles esmeralda (estilo GitHub / Datadog)
-        # Nivel 0 (caído/inactivo), 1 (bajo), 2 (medio), 3 (alto), 4 (100% nominal)
         colores_escala = ["#F1F5F9", "#C8E6C9", "#81C784", "#2E7D32", "#0B3C26"]
-
-        nrows = len(dias_etiquetas)
-        ncols = len(horas_etiquetas)
-
         tile_w = 0.82
         tile_h = 0.72
 
@@ -359,8 +502,6 @@ def _build_visuals(ctx: ReportContext, styles: dict[str, ParagraphStyle], chart_
                     c_idx = 4
 
                 color_box = colores_escala[c_idx]
-
-                # Dibujo de pastilla con esquinas redondeadas
                 box = FancyBboxPatch(
                     (c - tile_w / 2, nrows - 1 - r - tile_h / 2),
                     tile_w,
@@ -372,25 +513,24 @@ def _build_visuals(ctx: ReportContext, styles: dict[str, ParagraphStyle], chart_
                 )
                 ax_hm.add_patch(box)
 
-        ax_hm.set_xlim(-0.7, ncols - 0.3)
-        ax_hm.set_ylim(-1.1, nrows - 0.3)
+        ax_hm.set_xlim(-0.7, max(0.5, ncols - 0.3))
+        ax_hm.set_ylim(-1.25, max(0.5, nrows - 0.3))
         ax_hm.xaxis.tick_top()
         ax_hm.set_xticks(range(ncols))
-        ax_hm.set_xticklabels(horas_etiquetas, fontsize=7.5, color="#475569")
+        ax_hm.set_xticklabels(col_labels, fontsize=7.5, color="#475569")
         ax_hm.tick_params(axis="x", top=True, bottom=False, labeltop=True, labelbottom=False, length=0)
         ax_hm.set_yticks(range(nrows))
-        ax_hm.set_yticklabels(list(reversed(dias_etiquetas)), fontsize=8, fontweight="bold", color="#1E293B")
+        ax_hm.set_yticklabels(list(reversed(row_labels)), fontsize=ytick_font, fontweight="bold", color="#1E293B")
         ax_hm.tick_params(axis="y", left=False, length=0)
 
-        # Quitar bordes del gráfico para diseño flat moderno
         for spine in ax_hm.spines.values():
             spine.set_visible(False)
 
-        # Leyenda inferior derecha estilo Datadog / GitHub (Ubicada limpia debajo de los días)
-        legend_start_x = ncols - 6.8
+        # Leyenda de escala
+        legend_start_x = max(0.0, ncols - 6.8)
         leg_w, leg_h = 0.70, 0.32
         legend_y = -0.92
-        ax_hm.text(legend_start_x - 0.4, legend_y + leg_h / 2, "Menos", fontsize=7, color="#64748B", ha="right", va="center")
+        ax_hm.text(legend_start_x - 0.4, legend_y + leg_h / 2, "Menos", fontsize=7.5, color="#64748B", ha="right", va="center")
         for i, col in enumerate(colores_escala):
             patch_leg = FancyBboxPatch(
                 (legend_start_x + (i * 0.85), legend_y),
@@ -402,21 +542,36 @@ def _build_visuals(ctx: ReportContext, styles: dict[str, ParagraphStyle], chart_
                 linewidth=0.4,
             )
             ax_hm.add_patch(patch_leg)
-        ax_hm.text(legend_start_x + (len(colores_escala) * 0.85) + 0.3, legend_y + leg_h / 2, "Más", fontsize=7, color="#64748B", ha="left", va="center")
+        ax_hm.text(legend_start_x + (len(colores_escala) * 0.85) + 0.3, legend_y + leg_h / 2, "Más", fontsize=7.5, color="#64748B", ha="left", va="center")
 
-        fig_hm.subplots_adjust(left=0.05, right=0.98, top=0.88, bottom=0.08)
+        left_margin = 0.20 if is_by_equipment else 0.06
+        fig_hm.subplots_adjust(left=left_margin, right=0.98, top=top_margin, bottom=bottom_margin)
 
-        elements.append(Paragraph("Matriz Semanal de Disponibilidad (Mapa de Calor Discreto)", styles["section"]))
-        elements.append(Spacer(1, 2))
-        elements.append(
+        hm_items = [
+            Paragraph(hm.get("title", "Matriz de Disponibilidad (Mapa de Calor Discreto)"), styles["section"]),
+            Spacer(1, 2),
             Paragraph(
-                "Mapeo de disponibilidad operacional por día de la semana y franja horaria (00h - 23h). "
-                "Permite identificar con precisión ventanas de caída y patrones de degradación sistemática.",
+                hm.get("rango_subtitulo", "Mapeo de disponibilidad operacional adaptado al perfil temporal de supervisión."),
                 styles["muted"],
-            )
-        )
-        elements.append(Spacer(1, 4))
-        elements.append(_build_chart_image(fig_hm, width=chart_width, height=175))
+            ),
+            Spacer(1, 4),
+            _build_chart_image(fig_hm, width=chart_width, height=hm_height),
+        ]
+
+    # ── Ensamblado de Flujo Visual con Control de Paginación y Aire Ejecutivo ───
+    if lat_items and hm_items:
+        if separate_pages:
+            elements.append(KeepTogether(lat_items))
+            elements.append(PageBreak())
+            elements.append(KeepTogether(hm_items))
+        else:
+            elements.append(KeepTogether(lat_items))
+            elements.append(Spacer(1, 14))  # Espacio de aire limpio entre ambos gráficos
+            elements.append(KeepTogether(hm_items))
+    elif lat_items:
+        elements.append(KeepTogether(lat_items))
+    elif hm_items:
+        elements.append(KeepTogether(hm_items))
 
     return elements
 
@@ -426,7 +581,9 @@ def _build_dynamic_intelligence_capsule(ctx: ReportContext, styles: dict[str, Pa
     if not ctx.metricas or not hasattr(ctx.metricas, "evaluar_estabilidad_global"):
         return Table([[Paragraph("Evaluación heurística no disponible.", styles["muted"])]])
 
-    evaluacion = ctx.metricas.evaluar_estabilidad_global(ctx.equipos, periodo_horas=24)
+    modo = getattr(ctx, "modo_telemetria", "")
+    periodo_horas = 168 if "Semanal" in modo else 24
+    evaluacion = ctx.metricas.evaluar_estabilidad_global(ctx.equipos, periodo_horas=periodo_horas)
 
     estado = evaluacion["estado"]
     badge_texto = evaluacion["badge"]
@@ -490,18 +647,141 @@ def _build_dynamic_intelligence_capsule(ctx: ReportContext, styles: dict[str, Pa
     return capsule
 
 
+def _build_timeline_table(ctx: ReportContext, styles: dict[str, ParagraphStyle]) -> list:
+    """Construye la tabla de auditoría cronológica de caídas mayores con segundo exacto."""
+    if not ctx.metricas or not hasattr(ctx.metricas, "obtener_timeline_incidencias"):
+        return []
+
+    modo = getattr(ctx, "modo_telemetria", "24h")
+    turno_ini = getattr(ctx, "turno_inicio", "07:00")
+    turno_fin = getattr(ctx, "turno_fin", "18:00")
+
+    timeline = ctx.metricas.obtener_timeline_incidencias(
+        ctx.equipos,
+        periodo_horas=24,
+        modo=modo,
+        turno_inicio=turno_ini,
+        turno_fin=turno_fin,
+    )
+    if not timeline:
+        return []
+
+    data = [
+        [
+            Paragraph("Activo Afectado", styles["table_header"]),
+            Paragraph("IP / Host", styles["table_header"]),
+            Paragraph("Inicio de Falla", styles["table_header"]),
+            Paragraph("Hora Término", styles["table_header"]),
+            Paragraph("Impacto en Período", styles["table_header"]),
+            Paragraph("Duración Total Falla", styles["table_header"]),
+            Paragraph("Severidad / Estado", styles["table_header"]),
+        ]
+    ]
+
+    for item in timeline[:6]:
+        sev_color = "#DC2626" if "Crítico" in item["severidad"] or item.get("en_curso") else "#D97706"
+        sev_text = f"<font color='{sev_color}'><b>{item['severidad']}</b></font>"
+
+        dur_per_text = f"<font color='#DC2626'><b>{item.get('duracion_periodo_str', item['duracion_str'])}</b></font>"
+        dur_tot_text = f"<font color='#64748B'><b>{item.get('duracion_str', item['duracion_str'])}</b></font>"
+
+        data.append(
+            [
+                Paragraph(item["activo"], styles["table_cell_bold"]),
+                Paragraph(item["ip"], styles["table_cell_mono"]),
+                Paragraph(item["inicio_str"], styles["table_cell"]),
+                Paragraph(item["fin_str"], styles["table_cell"]),
+                Paragraph(dur_per_text, styles["table_cell"]),
+                Paragraph(dur_tot_text, styles["table_cell"]),
+                Paragraph(sev_text, styles["table_cell"]),
+            ]
+        )
+
+    t = Table(
+        data,
+        colWidths=[45 * mm, 25 * mm, 32 * mm, 36 * mm, 32 * mm, 36 * mm, 40 * mm],
+        repeatRows=1,
+    )
+    t.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0F172A")),
+                ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#CBD5E1")),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#FEF2F2")]),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("TOPPADDING", (0, 0), (-1, -1), 4),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ]
+        )
+    )
+
+    t_block = [
+        Paragraph("Registro Cronológico de Eventos Críticos & Caídas Significativas", styles["section"]),
+        Spacer(1, 2),
+        Paragraph(
+            "Detalle segundo a segundo de desconexiones registradas en base de datos. "
+            "Se audita el impacto efectivo dentro del período evaluado y la duración total de la contingencia "
+            "preservada sin reinicios arbitrarios al abrir turnos.",
+            styles["muted"],
+        ),
+        Spacer(1, 4),
+        t,
+    ]
+    return [KeepTogether(t_block), Spacer(1, 6)]
+
+
+def _build_signatures_table(ctx: ReportContext, styles: dict[str, ParagraphStyle]) -> Table:
+    """Genera el bloque formal de firmas de conformidad técnica y recepción cliente."""
+    emisor_content = [
+        Paragraph("<b>EMITIDO Y CERTIFICADO POR:</b>", styles["capsule_subhead"]),
+        Spacer(1, 10),
+        Paragraph("____________________________________________", styles["body"]),
+        Paragraph(f"<b>{ctx.generated_by}</b>", styles["body"]),
+        Paragraph("Ingeniería de Redes & Monitoreo NOC", styles["muted"]),
+        Paragraph(f"Suite {ctx.app_name} {ctx.version}", styles["muted"]),
+    ]
+    cliente_content = [
+        Paragraph("<b>CONFORMIDAD DE RECEPCIÓN (CLIENTE):</b>", styles["capsule_subhead"]),
+        Spacer(1, 10),
+        Paragraph("____________________________________________", styles["body"]),
+        Paragraph("<b>Firma y Timbre Autorizado</b>", styles["body"]),
+        Paragraph(f"Entidad: <b>{ctx.empresa_cliente}</b>", styles["muted"]),
+        Paragraph(f"Sitio / Planta: <b>{ctx.sitio_planta}</b>", styles["muted"]),
+    ]
+
+    table = Table(
+        [[emisor_content, cliente_content]],
+        colWidths=[120 * mm, 120 * mm],
+        hAlign="CENTER",
+    )
+    table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#F8FAFC")),
+                ("BOX", (0, 0), (0, 0), 0.8, colors.HexColor("#CBD5E1")),
+                ("BOX", (1, 0), (1, 0), 0.8, colors.HexColor("#CBD5E1")),
+                ("TOPPADDING", (0, 0), (-1, -1), 6),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+                ("LEFTPADDING", (0, 0), (-1, -1), 10),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+            ]
+        )
+    )
+    return table
+
+
 def build_network_report(ctx: ReportContext) -> str:
     os.makedirs(os.path.dirname(ctx.filename) or ".", exist_ok=True)
     styles = {
         "title": _paragraph_style("title", size=20, color="#0F172A", leading=24, bold=True),
         "subtitle": _paragraph_style("subtitle", size=10, color="#475569"),
-        "section": _paragraph_style("section", size=12, color="#0F172A", bold=True),
-        "subheader": _paragraph_style("subheader", size=10, color="#1E293B", bold=True),
+        "section": _paragraph_style("section", size=11, color="#0F172A", bold=True, keepWithNext=True),
+        "subheader": _paragraph_style("subheader", size=9.5, color="#1E293B", bold=True, keepWithNext=True),
         "body": _paragraph_style("body", size=8.5, color="#1F2937", leading=12),
         "muted": _paragraph_style("muted", size=8, color="#64748B", leading=11),
         "muted_highlight": _paragraph_style("muted_highlight", size=8, color="#0F172A", leading=11),
         "card_title": _paragraph_style("card_title", size=7.5, color="#64748B"),
-        "card_value": _paragraph_style("card_value", size=14, color="#0F172A", bold=True),
+        "card_value": _paragraph_style("card_value", size=13, color="#0F172A", bold=True, leading=15),
         "table_header": _paragraph_style("table_header", size=7.5, color="#FFFFFF", bold=True),
         "table_cell": _paragraph_style("table_cell", size=7.5, color="#1F2937"),
         "table_cell_bold": _paragraph_style("table_cell_bold", size=7.5, color="#0F172A", bold=True),
@@ -522,7 +802,7 @@ def build_network_report(ctx: ReportContext) -> str:
     )
     elements: list = []
 
-    # ── Cabecera Principal con Logo y Usuario Dinámico ────────────────────────────
+    # ── Cabecera Principal con Logo y Datos Empresariales Fortune 500 ─────────────
     title_column = [
         Paragraph(ctx.app_name, styles["title"]),
         Paragraph(ctx.tagline, styles["subtitle"]),
@@ -530,7 +810,8 @@ def build_network_report(ctx: ReportContext) -> str:
         Paragraph(
             (
                 f"<b>Reporte Ejecutivo-Operacional de Telemetría</b><br/>"
-                f"Fecha de corte: <b>{generated_at.strftime('%d/%m/%Y %H:%M:%S')}</b><br/>"
+                f"Empresa / Cliente: <b>{ctx.empresa_cliente}</b> &nbsp;│&nbsp; Sitio / Faena: <b>{ctx.sitio_planta}</b><br/>"
+                f"Período Evaluado: <b>{ctx.periodo_evaluado}</b> &nbsp;│&nbsp; Fecha de corte: <b>{generated_at.strftime('%d/%m/%Y %H:%M:%S')}</b><br/>"
                 f"Generado por: <b>{ctx.generated_by}</b>"
             ),
             styles["body"],
@@ -561,29 +842,33 @@ def build_network_report(ctx: ReportContext) -> str:
     elements.append(Paragraph("Inventario y Estado de Activos Monitoreados", styles["section"]))
     elements.append(Spacer(1, 3))
     elements.append(_build_devices_table(ctx, styles))
-    elements.append(Spacer(1, 8))
 
     # ── Página 2: Analítica Visual de Telemetría ───────────────────────────────────
     visuals = _build_visuals(ctx, styles, doc.width)
     if visuals:
         elements.append(PageBreak())
         elements.extend(visuals)
-        elements.append(Spacer(1, 8))
 
     # ── Página 3: Cápsula Dinámica de Inteligencia & Recomendaciones ───────────────
     elements.append(PageBreak())
-    elements.append(Paragraph("Dictamen de Estabilidad & Análisis de Inteligencia Operacional", styles["section"]))
-    elements.append(Spacer(1, 2))
-    elements.append(
+    capsule_items = [
+        Paragraph("Dictamen de Estabilidad & Análisis de Inteligencia Operacional", styles["section"]),
+        Spacer(1, 2),
         Paragraph(
             "Conclusiones y diagnóstico heurístico generado por el motor de telemetría de Argos Guard, "
             "evaluando fluctuaciones de señal, microcortes y salud integral de enlaces.",
             styles["muted"],
-        )
-    )
-    elements.append(Spacer(1, 5))
-    elements.append(_build_dynamic_intelligence_capsule(ctx, styles))
-    elements.append(Spacer(1, 10))
+        ),
+        Spacer(1, 4),
+        _build_dynamic_intelligence_capsule(ctx, styles),
+    ]
+    elements.append(KeepTogether(capsule_items))
+    elements.append(Spacer(1, 6))
+
+    # ── Timeline Cronológico de Incidencias Críticas ──────────────────────────────
+    timeline_elements = _build_timeline_table(ctx, styles)
+    if timeline_elements:
+        elements.extend(timeline_elements)
 
     # ── Sección OSINT (si existen datos) ──────────────────────────────────────────
     if ctx.osint_data:
@@ -642,16 +927,30 @@ def build_network_report(ctx: ReportContext) -> str:
             elements.append(Spacer(1, 8))
 
     # ── Notas Finales y Certificación ─────────────────────────────────────────────
-    elements.append(Paragraph("Notas de Cumplimiento & Certificación de Emisión", styles["section"]))
-    elements.append(Spacer(1, 2))
-    notes = (
-        f"Este documento refleja la telemetría operacional bajo política TLS "
-        f"{'estricta' if ctx.tls_strict else 'flexible controlada'}, con {ctx.camera_max_streams} stream(s) "
-        f"simultáneo(s) y {ctx.cameras_count} cámara(s) registradas. "
-        f"Emitido y validado digitalmente por la suite <b>{ctx.app_name} {ctx.version}</b>."
-    )
-    elements.append(Paragraph(notes, styles["body"]))
-    elements.append(Spacer(1, 6))
+    if ctx.incluir_cctv:
+        notes = (
+            f"Este documento refleja la telemetría operacional bajo política TLS "
+            f"{'estricta' if ctx.tls_strict else 'flexible controlada'}, con {ctx.camera_max_streams} stream(s) "
+            f"simultáneo(s) y {ctx.cameras_count} cámara(s) registradas. "
+            f"Emitido y validado digitalmente por la suite <b>{ctx.app_name} {ctx.version}</b>."
+        )
+    else:
+        notes = (
+            f"Este documento refleja la telemetría operacional bajo política TLS "
+            f"{'estricta' if ctx.tls_strict else 'flexible controlada'}, auditando disponibilidad, "
+            f"latencia temporal y cumplimiento de SLA de red. Supervisión CCTV no requerida para este perfil. "
+            f"Emitido y validado digitalmente por la suite <b>{ctx.app_name} {ctx.version}</b>."
+        )
+
+    signatures_block = [
+        Paragraph("Notas de Cumplimiento & Certificación de Emisión", styles["section"]),
+        Spacer(1, 2),
+        Paragraph(notes, styles["body"]),
+        Spacer(1, 4),
+        _build_signatures_table(ctx, styles),
+    ]
+    elements.append(KeepTogether(signatures_block))
+    elements.append(Spacer(1, 4))
 
     def _decorate_page(canvas, _doc):
         canvas.setTitle(f"{ctx.app_name} - Reporte de Telemetría")
@@ -665,7 +964,7 @@ def build_network_report(ctx: ReportContext) -> str:
         canvas.setFont("Helvetica", 8)
         canvas.setFillColor(colors.HexColor("#64748B"))
         ver_str = ctx.version if ctx.version.startswith("v") else f"v{ctx.version}"
-        canvas.drawString(16 * mm, 5 * mm, f"{ctx.app_name} {ver_str} • Telemetría Industrial")
+        canvas.drawString(16 * mm, 5 * mm, f"{ctx.app_name} {ver_str} • {ctx.empresa_cliente} • {ctx.sitio_planta}")
         canvas.drawRightString(262 * mm, 5 * mm, generated_at.strftime("%d/%m/%Y %H:%M"))
         canvas.restoreState()
 

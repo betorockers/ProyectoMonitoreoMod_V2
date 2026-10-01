@@ -59,3 +59,9 @@ MONTHLY_AVAILABILITY_FILE: str = "disponibilidad_mensual.json"
 HISTORIAL_LOG_FILE: str = "historial_log.txt"
 EQUIPOS_CONFIG_FILE: str = "equipos_guardados.json"
 SERVICES_WHITELIST_FILE: str = "services_whitelist.json"
+
+# --- Turnos Operacionales ---
+DEFAULT_TURNO_INICIO: str = "07:00"
+DEFAULT_TURNO_FIN: str = "18:00"
+DEFAULT_TURNO_NOMBRE: str = "Turno Operativo"
+

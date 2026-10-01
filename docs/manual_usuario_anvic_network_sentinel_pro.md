@@ -1,5 +1,5 @@
 # Manual de Usuario
-## Anvic Network Sentinel v2.2.3 - Edición Pro (Industrial)
+## Anvic Network Sentinel v2.2.4 - Edición Pro (Industrial)
 
 Este manual describe el uso operativo de **Anvic Network Sentinel** desde la instalación inicial hasta la utilización completa de sus funciones en la edición `Pro`.
 
@@ -96,7 +96,7 @@ Puede:
 La versión actual se organiza en cinco módulos principales:
 
 - `Operación en Vivo`
-- `Historial Operacional`
+- `Historial Operacional / Telemetría`
 - `Supervisión Visual`
 - `Centro de Soporte`
 - `Administración`
@@ -132,24 +132,29 @@ Utilice nombres descriptivos por instalación, por ejemplo:
 
 ---
 
-## 7. Historial Operacional
+## 7. Historial Operacional y Telemetría Adaptativa
 
-Este módulo concentra la trazabilidad y los gráficos históricos.
+Este módulo concentra la trazabilidad, los gráficos históricos y la telemetría dinámica de rendimiento.
 
-### Qué incluye
+### Modos de Visualización Dinámica (Barra Superior)
+En la parte superior de la vista de telemetría, el operador puede seleccionar instantáneamente entre 4 modalidades operativas:
 
-- historial de eventos
-- disponibilidad
-- latencia
-- visualizaciones más amplias para revisión ejecutiva
-- base para reportes PDF
+1. **Semanal (7D x 24h):**
+   - Análisis macroscópico de los últimos 7 días completos (matriz 7D × 24h).
+   - KPIs de uptime, latencia media y percentil 95 consolidados en 168 horas continuas.
+2. **Semanal (7D x Turno):**
+   - Análisis de los últimos 7 días acotado estrictamente a la franja horaria del turno configurado en Administración (ej: 07:00 a 18:00).
+   - El mapa de calor (heatmap) y los gauges reflejan únicamente la disponibilidad durante la jornada laboral activa.
+3. **Por Equipo (24h):**
+   - Comparativa individualizada entre todos los equipos monitoreados durante las últimas 24 horas continuas.
+   - Cada fila del mapa de calor representa un equipo en la red.
+4. **Por Equipo (Turno):**
+   - Comparativa individualizada por equipo focalizada exclusivamente en las horas del turno en curso.
 
-### Qué revisar aquí
-
-- patrones de caída
-- estabilidad por horario
-- equipos con mayor variación de latencia
-- comportamiento general de la instalación
+### Rendimiento Multihilo y Refresco Continuo
+- **Procesamiento Asíncrono:** Todas las consultas SQL y cálculos matemáticos se ejecutan en segundo plano, manteniendo la interfaz a 60 FPS estables sin tirones ni demoras.
+- **Refresco Automático:** El sistema actualiza las métricas cada **15 segundos**, con renderizado no bloqueante (`draw_idle`).
+- **Desacople Multi-Monitor:** Utilice el botón `⧉ Desacoplar` para proyectar el dashboard de telemetría de forma continua en una pantalla secundaria física.
 
 ---
 
@@ -363,6 +368,24 @@ Recomendación:
 
 - dejarla desactivada por defecto
 - activarla solo si aporta valor operativo concreto
+
+## 10.4 Configuración de Turnos Operacionales
+
+El Administrador puede definir y ajustar en cualquier momento las franjas horarias de operación:
+
+- **Hora Inicio del Turno:** Selector de `00:00` a `23:00`.
+- **Hora Fin del Turno:** Selector de `00:00` a `23:00`.
+- **Turnos Nocturnos:** Si la hora de inicio es mayor que la de fin (ejemplo: `20:00` a `06:00`), el sistema detecta automáticamente que el turno cruza la medianoche y adapta el análisis sin fallos de desbordamiento.
+- **Persistencia y Reactividad:** Al presionar *"💾 Guardar Configuración de Turno"*, los valores se cifran en disco y se propagan inmediatamente a la pestaña de Telemetría sin reiniciar la aplicación.
+
+## 10.5 Actualizaciones y Parches Industriales
+
+Para actualizar la aplicación en máquinas donde ya se encuentra instalada:
+
+1. **Ejecutar el instalador de parche:** Ejecute `ANS_Patch_V2.2.4.exe` como Administrador.
+2. **Detección Automática:** El asistente localiza la ruta de instalación en el Registro de Windows y verifica que el software esté instalado.
+3. **Backup Preventivo:** Antes de sobreescribir cualquier archivo, el instalador crea una copia de seguridad en `{app}\backups\backup_pre_patch_[TIMESTAMP]\` y genera un script `rollback.bat` para revertir al estado anterior en un clic si fuese necesario.
+4. **Protección Total de Datos:** El proceso **nunca toca ni reinicia** la base de datos de mediciones `anvic_monitor.db`, los usuarios registrados ni la clave de cifrado maestro.
 
 ### Política SSH
 

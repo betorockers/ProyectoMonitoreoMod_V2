@@ -54,6 +54,7 @@ from config.settings import (
     DEFAULT_PING_INTERVAL, EQUIPOS_CONFIG_FILE,
     SCHEDULER_TIMES, BACKUP_HOUR, BACKUP_MINUTE,
     HISTORIAL_LOG_FILE,
+    DEFAULT_TURNO_INICIO, DEFAULT_TURNO_FIN, DEFAULT_TURNO_NOMBRE,
 )
 from utils.paths import get_base_path, get_resource_path
 from key_manager import load_key
@@ -118,14 +119,13 @@ class Sidebar:
         app = self.app
         frame = self.frame
 
-        customtkinter.CTkLabel(frame, text="Intervalo Ping (Segundos):", font=("Arial", 12)).grid(
+        customtkinter.CTkLabel(frame, text="Locación (Planta / Sitio):", font=("Arial", 12)).grid(
             row=2, column=0, padx=10, pady=(5, 0), sticky="w"
         )
-        self.ping_interval_entry = customtkinter.CTkEntry(
-            frame, placeholder_text="ej. 1, 5, 30", justify="center"
+        self.ubicacion_entry = customtkinter.CTkEntry(
+            frame, placeholder_text="ej. Quilicura, Renca, Sitio 1"
         )
-        self.ping_interval_entry.grid(row=3, column=0, padx=10, pady=2, sticky="ew")
-        self.ping_interval_entry.insert(0, str(app.ping_interval))
+        self.ubicacion_entry.grid(row=3, column=0, padx=10, pady=2, sticky="ew")
 
         customtkinter.CTkLabel(frame, text="Dirección IP:", font=("Arial", 12)).grid(
             row=4, column=0, padx=10, pady=(5, 0), sticky="w"
@@ -217,6 +217,13 @@ class App(customtkinter.CTk):
         self.verify_ssh_host_key: bool = True
         self.ssh_trust_on_first_use: bool = False
         self.active_camera_streams: int = 0
+        self.turno_inicio: str = cfg.DEFAULT_TURNO_INICIO
+        self.turno_fin: str = cfg.DEFAULT_TURNO_FIN
+        self.turno_nombre: str = cfg.DEFAULT_TURNO_NOMBRE
+        self.empresa_cliente: str = "Anvic Seguridad Integral"
+        self.sitio_planta: str = "Planta Quilicura - Renca"
+        self.sla_objetivo: float = 99.5
+        self.incluir_cctv_en_reporte: bool = False
         self.services_started: bool = False
         self._icon_path: str | None = None
         self.master_key = load_key(BASE_PATH)
@@ -453,6 +460,17 @@ class App(customtkinter.CTk):
             self.verify_ssh_host_key = bool(camera_settings.get("verify_ssh_host_key", True))
             self.ssh_trust_on_first_use = bool(camera_settings.get("ssh_trust_on_first_use", False))
 
+            turno_settings = data.get("turno_settings", {})
+            self.turno_inicio = str(turno_settings.get("inicio", cfg.DEFAULT_TURNO_INICIO))
+            self.turno_fin = str(turno_settings.get("fin", cfg.DEFAULT_TURNO_FIN))
+            self.turno_nombre = str(turno_settings.get("nombre", cfg.DEFAULT_TURNO_NOMBRE))
+
+            reporte_settings = data.get("reporte_settings", {})
+            self.empresa_cliente = str(reporte_settings.get("empresa_cliente", "Anvic Seguridad Integral"))
+            self.sitio_planta = str(reporte_settings.get("sitio_planta", "Planta Quilicura - Renca"))
+            self.sla_objetivo = float(reporte_settings.get("sla_objetivo", 99.5))
+            self.incluir_cctv_en_reporte = bool(reporte_settings.get("incluir_cctv", False))
+
             self.ping_interval = max(data.get("intervalo_ping", DEFAULT_PING_INTERVAL), 1)
 
             for eq in self.equipos_a_monitorear:
@@ -594,6 +612,31 @@ class App(customtkinter.CTk):
         if hasattr(self, "cameras_tab"):
             self.cameras_tab._refresh_stream_status()
 
+    def save_turno_runtime_settings(self, inicio: str, fin: str, nombre: str = "Turno Operativo") -> None:
+        self.turno_inicio = inicio
+        self.turno_fin = fin
+        self.turno_nombre = nombre
+        if hasattr(self, "monitor_tab"):
+            self.monitor_tab.guardar_equipos()
+        if hasattr(self, "history_tab"):
+            self.history_tab.actualizar_graficos(forzar=True)
+        elif hasattr(self, "telemetria_controller") and self.telemetria_controller:
+            self.telemetria_controller.actualizar_graficos(forzar=True)
+
+    def save_reporte_runtime_settings(
+        self,
+        empresa_cliente: str,
+        sitio_planta: str,
+        sla_objetivo: float,
+        incluir_cctv: bool,
+    ) -> None:
+        self.empresa_cliente = empresa_cliente.strip() or "Empresa Cliente"
+        self.sitio_planta = sitio_planta.strip() or "Sitio / Planta"
+        self.sla_objetivo = float(sla_objetivo)
+        self.incluir_cctv_en_reporte = bool(incluir_cctv)
+        if hasattr(self, "monitor_tab"):
+            self.monitor_tab.guardar_equipos()
+
     def try_acquire_camera_stream(self) -> bool:
         if self.active_camera_streams >= self.camera_max_streams:
             return False
@@ -627,6 +670,22 @@ class App(customtkinter.CTk):
         else:
             user_display = f"Operador de Red • {role_label}"
 
+        modo_telemetria = "Semanal (7D x 24h)"
+        filtro_host = "Todos los Equipos"
+        turno_ini = getattr(self, "turno_inicio", "07:00")
+        turno_fin = getattr(self, "turno_fin", "18:00")
+        hist_ctrl = getattr(self, "history_tab", None) or getattr(self, "telemetria_controller", None)
+        if hist_ctrl:
+            modo_telemetria = getattr(hist_ctrl, "modo_heatmap", "Semanal (7D x 24h)")
+            filtro_host = getattr(hist_ctrl, "filtro_host", "Todos los Equipos")
+
+        if "Turno" in modo_telemetria:
+            periodo_evaluado = f"Turno {turno_ini} a {turno_fin}"
+        elif "Semanal" in modo_telemetria:
+            periodo_evaluado = "Últimos 7 Días"
+        else:
+            periodo_evaluado = "Últimas 24 Horas"
+
         try:
             build_network_report(
                 ReportContext(
@@ -642,6 +701,15 @@ class App(customtkinter.CTk):
                     tls_strict=bool(getattr(self, "verify_tls_certificates", False)),
                     cameras_count=len(getattr(self, "cameras_config", [])),
                     camera_max_streams=int(getattr(self, "camera_max_streams", 1)),
+                    empresa_cliente=getattr(self, "empresa_cliente", "Anvic Seguridad Integral"),
+                    sitio_planta=getattr(self, "sitio_planta", "Planta Quilicura - Renca"),
+                    sla_objetivo=float(getattr(self, "sla_objetivo", 99.5)),
+                    incluir_cctv=bool(getattr(self, "incluir_cctv_en_reporte", False)),
+                    periodo_evaluado=periodo_evaluado,
+                    modo_telemetria=modo_telemetria,
+                    filtro_host=filtro_host,
+                    turno_inicio=turno_ini,
+                    turno_fin=turno_fin,
                     osint_data=getattr(self, "osint_tab", None).module_results if hasattr(self, "osint_tab") else None,
                 )
             )

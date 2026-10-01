@@ -519,6 +519,178 @@ class SetupWindow(customtkinter.CTkToplevel):
             self.error_lbl.configure(text=msg)
 
 
+class ModalEditarEquipo(customtkinter.CTkToplevel):
+    """Modal interactivo para modificar el nombre, IP y locación de un activo o eliminarlo."""
+
+    def __init__(self, app, target):
+        super().__init__(app)
+        self.app = app
+
+        # Aceptar tanto objeto equipo (dict) como dirección IP (str)
+        if isinstance(target, dict):
+            self.equipo = target
+            self.original_ip = target.get("ip", "")
+        else:
+            self.original_ip = str(target)
+            self.equipo = next((eq for eq in self.app.equipos_a_monitorear if eq.get("ip") == self.original_ip), None)
+
+        if not self.equipo:
+            self.destroy()
+            return
+
+        self.title("Modificar Activo")
+        self.geometry("420x420")
+        self.resizable(False, False)
+
+        try:
+            self.transient(app)
+            self.grab_set()
+        except Exception:
+            pass
+
+        self.protocol("WM_DELETE_WINDOW", self.destroy)
+
+        try:
+            x = max(10, app.winfo_x() + (app.winfo_width() - 430) // 2)
+            y = max(10, app.winfo_y() + (app.winfo_height() - 470) // 2)
+            self.geometry(f"430x470+{x}+{y}")
+        except Exception:
+            pass
+
+        frame = customtkinter.CTkFrame(self, fg_color="#1E1E22", corner_radius=10)
+        frame.pack(fill="both", expand=True, padx=15, pady=15)
+
+        customtkinter.CTkLabel(
+            frame, text="🛠️ Modificar Datos del Activo", font=("Arial", 16, "bold"), text_color="#38BDF8"
+        ).pack(pady=(8, 12))
+
+        customtkinter.CTkLabel(frame, text="Nombre / Etiqueta:", font=("Arial", 11, "bold"), text_color="#CBD5E1").pack(anchor="w", padx=20, pady=(2, 0))
+        self.entry_label = customtkinter.CTkEntry(frame, width=350)
+        self.entry_label.pack(padx=20, pady=(2, 6))
+        self.entry_label.insert(0, self.equipo.get("label", ""))
+
+        customtkinter.CTkLabel(frame, text="Dirección IP o Host:", font=("Arial", 11, "bold"), text_color="#CBD5E1").pack(anchor="w", padx=20, pady=(2, 0))
+        self.entry_ip = customtkinter.CTkEntry(frame, width=350)
+        self.entry_ip.pack(padx=20, pady=(2, 6))
+        self.entry_ip.insert(0, self.equipo.get("ip", ""))
+
+        customtkinter.CTkLabel(frame, text="Locación (Planta, Sucursal o Sitio):", font=("Arial", 11, "bold"), text_color="#CBD5E1").pack(anchor="w", padx=20, pady=(2, 0))
+        self.entry_ubicacion = customtkinter.CTkEntry(frame, width=350, placeholder_text="ej. Quilicura, Renca, Sucursal Norte")
+        self.entry_ubicacion.pack(padx=20, pady=(2, 10))
+        ubi = self.equipo.get("ubicacion", "")
+        if not ubi:
+            lbl_low = self.equipo.get("label", "").lower()
+            if "quilicura" in lbl_low:
+                ubi = "Quilicura"
+            elif "renca" in lbl_low:
+                ubi = "Renca"
+        self.entry_ubicacion.insert(0, ubi)
+
+        # ── Controles de Posición en Cuadrícula ──
+        pos_frame = customtkinter.CTkFrame(frame, fg_color="#18181B", corner_radius=6)
+        pos_frame.pack(fill="x", padx=20, pady=(0, 14))
+
+        actual_pos = next((i + 1 for i, eq in enumerate(self.app.equipos_a_monitorear) if eq.get("ip") == self.original_ip), 1)
+        total_eq = len(self.app.equipos_a_monitorear)
+
+        self.lbl_posicion = customtkinter.CTkLabel(
+            pos_frame, text=f"Posición: {actual_pos} de {total_eq}", font=("Arial", 11, "bold"), text_color="#38BDF8"
+        )
+        self.lbl_posicion.pack(side="left", padx=10, pady=6)
+
+        btn_box = customtkinter.CTkFrame(pos_frame, fg_color="transparent")
+        btn_box.pack(side="right", padx=6, pady=4)
+
+        customtkinter.CTkButton(
+            btn_box, text="⏮ 1°", width=42, height=24, fg_color="#334155", hover_color="#0284C7", font=("Arial", 10, "bold"),
+            command=lambda: self._mover_a_pos(0)
+        ).pack(side="left", padx=2)
+
+        customtkinter.CTkButton(
+            btn_box, text="◀", width=32, height=24, fg_color="#334155", hover_color="#0284C7", font=("Arial", 11, "bold"),
+            command=lambda: self._mover_relativo(-1)
+        ).pack(side="left", padx=2)
+
+        customtkinter.CTkButton(
+            btn_box, text="▶", width=32, height=24, fg_color="#334155", hover_color="#0284C7", font=("Arial", 11, "bold"),
+            command=lambda: self._mover_relativo(1)
+        ).pack(side="left", padx=2)
+
+        customtkinter.CTkButton(
+            btn_box, text="Fin ⏭", width=46, height=24, fg_color="#334155", hover_color="#0284C7", font=("Arial", 10, "bold"),
+            command=lambda: self._mover_a_pos(total_eq - 1)
+        ).pack(side="left", padx=2)
+
+        btn_frame = customtkinter.CTkFrame(frame, fg_color="transparent")
+        btn_frame.pack(fill="x", padx=20, pady=(0, 6))
+
+        self.btn_guardar = customtkinter.CTkButton(
+            btn_frame, text="💾 Guardar", command=self._guardar, fg_color="#10B981", hover_color="#059669", font=("Arial", 12, "bold"), width=150
+        )
+        self.btn_guardar.pack(side="left", padx=4)
+
+        self.btn_eliminar = customtkinter.CTkButton(
+            btn_frame, text="🗑️ Eliminar", command=self._eliminar, fg_color="#EF4444", hover_color="#DC2626", font=("Arial", 12, "bold"), width=95
+        )
+        self.btn_eliminar.pack(side="left", padx=4)
+
+        self.btn_cancelar = customtkinter.CTkButton(
+            btn_frame, text="Cerrar", command=self.destroy, fg_color="#475569", hover_color="#334155", width=75
+        )
+        self.btn_cancelar.pack(side="right", padx=4)
+
+    def _mover_relativo(self, delta):
+        idx = next((i for i, eq in enumerate(self.app.equipos_a_monitorear) if eq.get("ip") == self.original_ip), None)
+        if idx is None:
+            return
+        nuevo_idx = max(0, min(len(self.app.equipos_a_monitorear) - 1, idx + delta))
+        if nuevo_idx != idx:
+            item = self.app.equipos_a_monitorear.pop(idx)
+            self.app.equipos_a_monitorear.insert(nuevo_idx, item)
+            self.app.reorganizar_grid_monitores()
+            if hasattr(self.app, "_programar_guardado_silencioso"):
+                self.app._programar_guardado_silencioso()
+            total_eq = len(self.app.equipos_a_monitorear)
+            self.lbl_posicion.configure(text=f"Posición: {nuevo_idx + 1} de {total_eq}")
+
+    def _mover_a_pos(self, target_idx):
+        idx = next((i for i, eq in enumerate(self.app.equipos_a_monitorear) if eq.get("ip") == self.original_ip), None)
+        if idx is None or idx == target_idx:
+            return
+        item = self.app.equipos_a_monitorear.pop(idx)
+        self.app.equipos_a_monitorear.insert(target_idx, item)
+        self.app.reorganizar_grid_monitores()
+        if hasattr(self.app, "_programar_guardado_silencioso"):
+            self.app._programar_guardado_silencioso()
+        total_eq = len(self.app.equipos_a_monitorear)
+        self.lbl_posicion.configure(text=f"Posición: {target_idx + 1} de {total_eq}")
+
+    def destroy(self):
+        try:
+            self.grab_release()
+        except Exception:
+            pass
+        if hasattr(self.app, "_modal_edicion_activo") and self.app._modal_edicion_activo is self:
+            self.app._modal_edicion_activo = None
+        super().destroy()
+
+    def _guardar(self):
+        new_label = self.entry_label.get().strip()
+        new_ip = self.entry_ip.get().strip()
+        new_ubicacion = self.entry_ubicacion.get().strip()
+
+        if not new_label or not new_ip:
+            ToastNotification(self.app, "Error", "El nombre y la IP no pueden estar vacíos.", color="red")
+            return
+
+        self.app.actualizar_datos_equipo(self.original_ip, new_ip, new_label, new_ubicacion)
+        self.destroy()
+
+    def _eliminar(self):
+        self.app.eliminar_equipo_directo(self.original_ip)
+        self.destroy()
+
+
 class IPMonitor(customtkinter.CTkFrame):
     def __init__(
         self,
@@ -528,6 +700,7 @@ class IPMonitor(customtkinter.CTkFrame):
         desconexiones_count=0,
         mac="Buscando MAC...",
         disconnection_timestamp=None,
+        ubicacion="",
     ):
         super().__init__(
             master,
@@ -539,68 +712,250 @@ class IPMonitor(customtkinter.CTkFrame):
 
         self.ip = ip
         self.label = label
+
+        if not ubicacion:
+            lbl_low = label.lower()
+            if "quilicura" in lbl_low:
+                ubicacion = "Quilicura"
+            elif "renca" in lbl_low:
+                ubicacion = "Renca"
+        self.ubicacion = ubicacion
+
         self.status = "Verificando..."
         self.previous_status = None
         self.desconexiones_count = desconexiones_count
         self.mac = mac
         self._ping_thread_active = True
 
-        # Campo para rastrear la fecha y hora exacta de la desconexión
         self.disconnection_timestamp = disconnection_timestamp
         self.critical_telegram_sent = False
         self.bind("<Destroy>", self._mark_ping_thread_inactive, add="+")
 
         self.grid_columnconfigure(0, weight=1)
 
-        # Diseño de tarjeta compacto y centrado
+        # Fila 0: Barra superior de locación y controles de movimiento rápido
+        self.header_frame = customtkinter.CTkFrame(self, fg_color="transparent")
+        self.header_frame.grid(row=0, column=0, padx=6, pady=(4, 0), sticky="ew")
+
+        badge_txt = f"📍 {self.ubicacion.upper()}" if self.ubicacion else "📍 SITIO"
+        self.ubicacion_badge = customtkinter.CTkLabel(
+            self.header_frame,
+            text=badge_txt,
+            font=("Arial", 8.5, "bold"),
+            text_color="#38BDF8",
+            fg_color="#1E293B",
+            corner_radius=4,
+            height=16,
+            padx=4,
+        )
+        self.ubicacion_badge.pack(side="left", padx=1)
+
+        # Controles de movimiento rápido y manija de arrastre
+        self.nav_controls = customtkinter.CTkFrame(self.header_frame, fg_color="transparent")
+        self.nav_controls.pack(side="right", padx=0)
+
+        self.btn_move_left = customtkinter.CTkButton(
+            self.nav_controls,
+            text="◀",
+            width=20,
+            height=16,
+            corner_radius=3,
+            fg_color="#334155",
+            hover_color="#0284C7",
+            font=("Arial", 9, "bold"),
+            command=self._mover_izquierda,
+        )
+        self.btn_move_left.pack(side="left", padx=1)
+
+        self.drag_hint = customtkinter.CTkLabel(
+            self.nav_controls,
+            text="⠿",
+            font=("Arial", 11),
+            text_color="#64748B",
+            cursor="fleur",
+            width=14,
+        )
+        self.drag_hint.pack(side="left", padx=1)
+
+        self.btn_move_right = customtkinter.CTkButton(
+            self.nav_controls,
+            text="▶",
+            width=20,
+            height=16,
+            corner_radius=3,
+            fg_color="#334155",
+            hover_color="#0284C7",
+            font=("Arial", 9, "bold"),
+            command=self._mover_derecha,
+        )
+        self.btn_move_right.pack(side="left", padx=1)
+
+        # Fila 1: Nombre del activo
         self.label_name = customtkinter.CTkLabel(
-            self, text=self.label, font=("Arial", 14, "bold"), text_color="#FFFFFF"
+            self, text=self.label, font=("Arial", 13, "bold"), text_color="#FFFFFF"
         )
-        self.label_name.grid(row=0, column=0, padx=10, pady=(10, 0), sticky="ew")
+        self.label_name.grid(row=1, column=0, padx=8, pady=(2, 0), sticky="ew")
 
-        # Fila 1: IP
+        # Fila 2: IP
         self.ip_label = customtkinter.CTkLabel(
-            self, text=self.ip, font=("Arial", 11), text_color="#AAAAAA"
+            self, text=self.ip, font=("Arial", 10), text_color="#AAAAAA"
         )
-        self.ip_label.grid(row=1, column=0, padx=10, pady=(0, 2), sticky="ew")
+        self.ip_label.grid(row=2, column=0, padx=8, pady=(0, 1), sticky="ew")
 
-        # Fila 2: MAC
+        # Fila 3: MAC
         self.mac_label = customtkinter.CTkLabel(
-            self, text=self.mac, font=("Arial", 10, "italic"), text_color="#888888"
+            self, text=self.mac, font=("Arial", 9, "italic"), text_color="#888888"
         )
-        self.mac_label.grid(row=2, column=0, padx=10, pady=(0, 5), sticky="ew")
+        self.mac_label.grid(row=3, column=0, padx=8, pady=(0, 3), sticky="ew")
 
-        # Fila 3: Icono de Status (Cargando inicialmente)
+        # Fila 4: Icono de Status
         self.status_icon_label = customtkinter.CTkLabel(
-            self, text="⏳", font=("Arial", 24), text_color="#555555"
+            self, text="⏳", font=("Arial", 20), text_color="#555555"
         )
-        self.status_icon_label.grid(row=3, column=0, padx=10, pady=(5, 0), sticky="ew")
+        self.status_icon_label.grid(row=4, column=0, padx=8, pady=(3, 0), sticky="ew")
 
-        # Fila 4: Texto de Status
+        # Fila 5: Texto de Status
         self.status_text_label = customtkinter.CTkLabel(
-            self, text="Iniciando...", font=("Arial", 12, "bold"), text_color="#555555"
+            self, text="Iniciando...", font=("Arial", 11, "bold"), text_color="#555555"
         )
-        self.status_text_label.grid(row=4, column=0, padx=10, pady=(0, 10), sticky="ew")
+        self.status_text_label.grid(row=5, column=0, padx=8, pady=(0, 6), sticky="ew")
 
-        # Permitir seleccionar equipo con un clic en cualquier parte de la tarjeta
-        for w in (self, self.label_name, self.ip_label, self.mac_label, self.status_icon_label, self.status_text_label):
-            w.bind("<Button-1>", self._on_card_click, add="+")
+        # Variables de control de arrastre y clics
+        self._press_x = 0
+        self._press_y = 0
+        self._drag_started = False
+        self._is_hover_target = False
+        self._current_hover_target = None
+        self._last_release_time = 0
 
-    def _on_card_click(self, event=None):
-        try:
+        # Enlazar interacción interactiva (Click para editar / Arrastre para reubicar)
+        # OJO: Los botones btn_move_left y btn_move_right NO se enlazan para permitir su click directo
+        widgets_to_bind = [
+            self,
+            self.header_frame,
+            self.ubicacion_badge,
+            self.drag_hint,
+            self.label_name,
+            self.ip_label,
+            self.mac_label,
+            self.status_icon_label,
+            self.status_text_label,
+        ]
+        for w in widgets_to_bind:
+            w.bind("<ButtonPress-1>", self._on_press, add="+")
+            w.bind("<B1-Motion>", self._on_motion, add="+")
+            w.bind("<ButtonRelease-1>", self._on_release, add="+")
+
+    def _mover_izquierda(self):
+        top = self.winfo_toplevel()
+        if hasattr(top, "mover_equipo_relativo"):
+            top.mover_equipo_relativo(self.ip, -1)
+
+    def _mover_derecha(self):
+        top = self.winfo_toplevel()
+        if hasattr(top, "mover_equipo_relativo"):
+            top.mover_equipo_relativo(self.ip, 1)
+
+    def _on_press(self, event):
+        self._press_x = event.x_root
+        self._press_y = event.y_root
+        self._drag_started = False
+        self._current_hover_target = None
+        return "break"
+
+    def _on_motion(self, event):
+        dx = abs(event.x_root - getattr(self, "_press_x", event.x_root))
+        dy = abs(event.y_root - getattr(self, "_press_y", event.y_root))
+        if dx > 8 or dy > 8:
+            if not getattr(self, "_drag_started", False):
+                self._drag_started = True
+                self.configure(border_color="#00D9FF", border_width=3)
+
             top = self.winfo_toplevel()
+            monitors_dict = getattr(top, "monitors", {})
+
+            best_card = None
+            min_dist = float("inf")
+            mx = event.x_root
+            my = event.y_root
+
+            for ip_key, card in monitors_dict.items():
+                if card is self or not card.winfo_exists():
+                    continue
+                try:
+                    rx = card.winfo_rootx()
+                    ry = card.winfo_rooty()
+                    rw = card.winfo_width()
+                    rh = card.winfo_height()
+
+                    # Comprobar si el cursor está exactamente dentro del rectángulo de la tarjeta
+                    if rx <= mx <= rx + rw and ry <= my <= ry + rh:
+                        best_card = card
+                        break
+
+                    cx = rx + rw / 2
+                    cy = ry + rh / 2
+                    dist = ((mx - cx) ** 2 + (my - cy) ** 2) ** 0.5
+                    if dist < min_dist and dist < max(rw, rh):
+                        min_dist = dist
+                        best_card = card
+                except Exception:
+                    continue
+
+            # Actualizar resaltado de la tarjeta candidata destino
+            current_target = getattr(self, "_current_hover_target", None)
+            if best_card != current_target:
+                if current_target is not None and current_target.winfo_exists():
+                    try:
+                        current_target._is_hover_target = False
+                        current_target.update_visuals()
+                    except Exception:
+                        pass
+                self._current_hover_target = best_card
+                if best_card is not None and best_card.winfo_exists():
+                    try:
+                        best_card._is_hover_target = True
+                        best_card.configure(border_color="#F59E0B", border_width=3)
+                    except Exception:
+                        pass
+
+        return "break"
+
+    def _on_release(self, event):
+        top = self.winfo_toplevel()
+
+        was_dragging = getattr(self, "_drag_started", False)
+        self._drag_started = False
+        self.update_visuals()
+
+        target_card = getattr(self, "_current_hover_target", None)
+        self._current_hover_target = None
+        if target_card is not None and target_card.winfo_exists():
+            try:
+                target_card._is_hover_target = False
+                target_card.update_visuals()
+            except Exception:
+                pass
+
+        now = time.time()
+        if now - getattr(self, "_last_release_time", 0) < 0.2:
+            return "break"
+        self._last_release_time = now
+
+        if was_dragging:
+            if target_card is not None and target_card is not self and hasattr(top, "reordenar_equipos"):
+                top.reordenar_equipos(self.ip, target_card.ip)
+        else:
             if hasattr(top, "remove_entry") and top.remove_entry.winfo_exists():
-                top.remove_entry.delete(0, "end")
-                top.remove_entry.insert(0, self.ip)
-                ToastNotification(
-                    top,
-                    "Equipo Seleccionado",
-                    f"IP: {self.ip} ({self.label})\nCargada para eliminación.",
-                    color="green",
-                    duration=2500,
-                )
-        except Exception:
-            pass
+                try:
+                    top.remove_entry.delete(0, "end")
+                    top.remove_entry.insert(0, self.ip)
+                except Exception:
+                    pass
+            if hasattr(top, "abrir_modal_editar_equipo"):
+                top.abrir_modal_editar_equipo(self.ip)
+
+        return "break"
 
     def update_status(self, new_status, mac_address, latencia=None):
         # Delegar la actualización de la UI al hilo principal de Tkinter
@@ -640,21 +995,35 @@ class IPMonitor(customtkinter.CTkFrame):
         self.check_for_alert()
 
     def update_visuals(self):
-        if self.status == "Conectado":
-            self.configure(border_color="green")
-            self.status_icon_label.configure(text="👍", text_color="green")
-            self.status_text_label.configure(text="Conectado", text_color="green")
-            self.mac_label.configure(text_color="#AAAAAA")
-        elif self.status == "Desconectado":
-            self.configure(border_color="red")
-            self.status_icon_label.configure(text="👎", text_color="red")
-            self.status_text_label.configure(text="Desconectado", text_color="red")
-            self.mac_label.configure(text="MAC Desconocida", text_color="#777777")
+        if not getattr(self, "_drag_started", False) and not getattr(self, "_is_hover_target", False):
+            if self.status == "Conectado":
+                self.configure(border_color="green", border_width=2)
+                self.status_icon_label.configure(text="👍", text_color="green")
+                self.status_text_label.configure(text="Conectado", text_color="green")
+                self.mac_label.configure(text_color="#AAAAAA")
+            elif self.status == "Desconectado":
+                self.configure(border_color="red", border_width=2)
+                self.status_icon_label.configure(text="👎", text_color="red")
+                self.status_text_label.configure(text="Desconectado", text_color="red")
+                self.mac_label.configure(text="MAC Desconocida", text_color="#777777")
+            else:
+                self.configure(border_color="#555555", border_width=2)
+                self.status_icon_label.configure(text="⏳", text_color="gray")
+                self.status_text_label.configure(text=self.status, text_color="gray")
+                self.mac_label.configure(text_color="#777777")
         else:
-            self.configure(border_color="#555555")
-            self.status_icon_label.configure(text="⏳", text_color="gray")
-            self.status_text_label.configure(text=self.status, text_color="gray")
-            self.mac_label.configure(text_color="#777777")
+            if self.status == "Conectado":
+                self.status_icon_label.configure(text="👍", text_color="green")
+                self.status_text_label.configure(text="Conectado", text_color="green")
+                self.mac_label.configure(text_color="#AAAAAA")
+            elif self.status == "Desconectado":
+                self.status_icon_label.configure(text="👎", text_color="red")
+                self.status_text_label.configure(text="Desconectado", text_color="red")
+                self.mac_label.configure(text="MAC Desconocida", text_color="#777777")
+            else:
+                self.status_icon_label.configure(text="⏳", text_color="gray")
+                self.status_text_label.configure(text=self.status, text_color="gray")
+                self.mac_label.configure(text_color="#777777")
 
     def check_for_alert(self):
         if self.previous_status is not None and self.previous_status != self.status:
@@ -737,6 +1106,17 @@ class App(customtkinter.CTk):
 
         self.withdraw()  # Iniciar oculto
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
+
+        # Manejador robusto de excepciones de callbacks Tkinter para evitar cierres abruptos
+        def _handle_tk_callback_exception(exc, val, tb):
+            msg = str(val).lower()
+            if isinstance(val, tk.TclError) and ("bad window path name" in msg or "grab failed" in msg):
+                return
+            import traceback
+            print(f"[Sentinel Callback Warning]: {val}")
+            traceback.print_exception(exc, val, tb)
+
+        self.report_callback_exception = _handle_tk_callback_exception
         self.equipos_a_monitorear = equipos_a_monitorear
         self.current_user = None
         self.services_started = False
@@ -755,6 +1135,13 @@ class App(customtkinter.CTk):
         self.ssh_trust_on_first_use = False
         self.ssh_known_hosts_path = os.path.join(BASE_PATH, "ssh_known_hosts")
         self.active_camera_streams = 0
+        self.turno_inicio = cfg.DEFAULT_TURNO_INICIO
+        self.turno_fin = cfg.DEFAULT_TURNO_FIN
+        self.turno_nombre = cfg.DEFAULT_TURNO_NOMBRE
+        self.empresa_cliente = "Anvic Seguridad Integral"
+        self.sitio_planta = "Planta Quilicura - Renca"
+        self.sla_objetivo = 99.5
+        self.incluir_cctv_en_reporte = False
         self.telegram_installation_name = ""
         self.telegram_notification_title = "Notificacion enviada desde"
         # Crear una única instancia de AuthManager con el gestor seguro
@@ -1359,16 +1746,15 @@ class App(customtkinter.CTk):
         self.sidebar_frame.grid_rowconfigure(14, weight=1)
 
         # Fila 2 en adelante para los controles
-        self.interval_label = customtkinter.CTkLabel(
-            self.sidebar_frame, text="Intervalo Ping (Segundos):", font=("Arial", 12)
+        self.ubicacion_label = customtkinter.CTkLabel(
+            self.sidebar_frame, text="Locación (Planta / Sitio):", font=("Arial", 12)
         )
-        self.interval_label.grid(row=2, column=0, padx=10, pady=(5, 0), sticky="w")
+        self.ubicacion_label.grid(row=2, column=0, padx=10, pady=(5, 0), sticky="w")
 
-        self.ping_interval_entry = customtkinter.CTkEntry(
-            self.sidebar_frame, placeholder_text="ej. 1, 5, 30", justify="center"
+        self.ubicacion_entry = customtkinter.CTkEntry(
+            self.sidebar_frame, placeholder_text="ej. Quilicura, Renca, Sitio 1"
         )
-        self.ping_interval_entry.grid(row=3, column=0, padx=10, pady=2, sticky="ew")
-        self.ping_interval_entry.insert(0, str(self.ping_interval))
+        self.ubicacion_entry.grid(row=3, column=0, padx=10, pady=2, sticky="ew")
 
         self.ip_label = customtkinter.CTkLabel(
             self.sidebar_frame, text="IP, URL o Dominio:", font=("Arial", 12)
@@ -1444,7 +1830,7 @@ class App(customtkinter.CTk):
             self.save_button.configure(state="disabled")
             self.load_button.configure(state="disabled")
             self.report_button.configure(state="disabled")
-            self.ping_interval_entry.configure(state="disabled")
+            self.ubicacion_entry.configure(state="disabled")
             self.ip_entry.configure(state="disabled")
             self.etiqueta_entry.configure(state="disabled")
             self.remove_entry.configure(state="disabled")
@@ -1583,6 +1969,41 @@ class App(customtkinter.CTk):
         )
         self.telegram_save_button.grid(row=6, column=0, columnspan=2, pady=12)
 
+        # ── Frame para Configuración de Red e Intervalos ─────────────────────
+        self.network_ping_frame = customtkinter.CTkFrame(self.admin_scroll_frame)
+        self.network_ping_frame.pack(fill="x", padx=20, pady=(0, 20))
+        self.network_ping_frame.grid_columnconfigure(1, weight=1)
+
+        customtkinter.CTkLabel(
+            self.network_ping_frame,
+            text="⚡ Configuración de Red e Intervalo de Monitoreo",
+            font=("Arial", 16, "bold"),
+        ).grid(row=0, column=0, columnspan=2, padx=10, pady=10, sticky="w")
+
+        customtkinter.CTkLabel(
+            self.network_ping_frame,
+            text="Frecuencia con la que se comprueba el estado ICMP/Ping de cada activo en la red. Un intervalo menor detecta caídas más rápido pero genera más paquetes en la red.",
+            text_color="#9aa0a6",
+            justify="left",
+            wraplength=640,
+        ).grid(row=1, column=0, columnspan=2, padx=10, pady=(0, 10), sticky="w")
+
+        customtkinter.CTkLabel(self.network_ping_frame, text="Intervalo Ping (Segundos):").grid(
+            row=2, column=0, padx=10, pady=5, sticky="e"
+        )
+        self.admin_ping_interval_entry = customtkinter.CTkEntry(self.network_ping_frame, width=120)
+        self.admin_ping_interval_entry.grid(row=2, column=1, padx=10, pady=5, sticky="w")
+        self.admin_ping_interval_entry.insert(0, str(getattr(self, "ping_interval", 15)))
+
+        self.btn_guardar_ping_interval = customtkinter.CTkButton(
+            self.network_ping_frame,
+            text="Guardar Intervalo de Ping",
+            command=self.guardar_intervalo_ping_admin,
+            fg_color="#0284C7",
+            hover_color="#0369A1",
+        )
+        self.btn_guardar_ping_interval.grid(row=3, column=0, columnspan=2, pady=12)
+
         self.camera_settings_frame = customtkinter.CTkFrame(self.admin_scroll_frame)
         if self.current_user["role"] == "super_admin":
             self.camera_settings_frame.pack(fill="x", padx=20, pady=(0, 20))
@@ -1673,6 +2094,136 @@ class App(customtkinter.CTk):
             self.camera_settings_frame, text="Guardar streaming, TLS y red", command=self.guardar_config_streaming
         )
         self.camera_settings_save_button.grid(row=10, column=0, columnspan=2, pady=15)
+
+        # ── Frame para Configuración de Turno Operacional ─────────────────────
+        self.turno_frame = customtkinter.CTkFrame(self.admin_scroll_frame)
+        self.turno_frame.pack(fill="x", padx=20, pady=(0, 20))
+        self.turno_frame.grid_columnconfigure(1, weight=1)
+
+        customtkinter.CTkLabel(
+            self.turno_frame,
+            text="⏰ Configuración de Turno Operacional (Telemetría Adaptativa)",
+            font=("Arial", 16, "bold"),
+        ).grid(row=0, column=0, columnspan=2, padx=10, pady=10, sticky="w")
+
+        customtkinter.CTkLabel(
+            self.turno_frame,
+            text="Define el rango horario del turno. Al seleccionar 'Semanal (7D x Turno)' o 'Por Equipo (Turno)' en Telemetría, todas las métricas, gauges, latencia y mapa de calor se adaptarán a esta franja.",
+            text_color="#9aa0a6",
+            justify="left",
+            wraplength=640,
+        ).grid(row=1, column=0, columnspan=2, padx=10, pady=(0, 10), sticky="w")
+
+        horas_disponibles = [f"{h:02d}:00" for h in range(24)]
+
+        customtkinter.CTkLabel(self.turno_frame, text="Hora Inicio Turno:").grid(
+            row=2, column=0, padx=10, pady=5, sticky="e"
+        )
+        self.turno_inicio_option = customtkinter.CTkOptionMenu(
+            self.turno_frame,
+            values=horas_disponibles,
+            width=140,
+            command=self._on_turno_hours_changed,
+        )
+        self.turno_inicio_option.set(getattr(self, "turno_inicio", cfg.DEFAULT_TURNO_INICIO))
+        self.turno_inicio_option.grid(row=2, column=1, padx=10, pady=5, sticky="w")
+
+        customtkinter.CTkLabel(self.turno_frame, text="Hora Fin Turno:").grid(
+            row=3, column=0, padx=10, pady=5, sticky="e"
+        )
+        self.turno_fin_option = customtkinter.CTkOptionMenu(
+            self.turno_frame,
+            values=horas_disponibles,
+            width=140,
+            command=self._on_turno_hours_changed,
+        )
+        self.turno_fin_option.set(getattr(self, "turno_fin", cfg.DEFAULT_TURNO_FIN))
+        self.turno_fin_option.grid(row=3, column=1, padx=10, pady=5, sticky="w")
+
+        self.lbl_turno_resumen = customtkinter.CTkLabel(
+            self.turno_frame,
+            text="",
+            font=("Arial", 11, "italic"),
+            text_color="#38BDF8",
+        )
+        self.lbl_turno_resumen.grid(row=4, column=0, columnspan=2, padx=10, pady=4, sticky="w")
+        self._actualizar_resumen_turno_label()
+
+        self.btn_guardar_turno = customtkinter.CTkButton(
+            self.turno_frame,
+            text="Guardar Configuración de Turno",
+            command=self.guardar_config_turno,
+            fg_color="#0284C7",
+            hover_color="#0369A1",
+        )
+        self.btn_guardar_turno.grid(row=5, column=0, columnspan=2, pady=12)
+
+        # ── Frame para Parámetros de Reporte Ejecutivo SLA (Fortune 500) ─────────────
+        self.report_frame = customtkinter.CTkFrame(self.admin_scroll_frame)
+        self.report_frame.pack(fill="x", padx=20, pady=(0, 20))
+        self.report_frame.grid_columnconfigure(1, weight=1)
+
+        customtkinter.CTkLabel(
+            self.report_frame,
+            text="📑 Configuración del Reporte Ejecutivo SLA (Fortune 500)",
+            font=("Arial", 16, "bold"),
+        ).grid(row=0, column=0, columnspan=2, padx=10, pady=10, sticky="w")
+
+        customtkinter.CTkLabel(
+            self.report_frame,
+            text="Personaliza la identidad corporativa y directrices del reporte formal en PDF. Define la empresa cliente, sitio y si se incluye supervisión CCTV.",
+            text_color="#9aa0a6",
+            justify="left",
+            wraplength=640,
+        ).grid(row=1, column=0, columnspan=2, padx=10, pady=(0, 10), sticky="w")
+
+        customtkinter.CTkLabel(self.report_frame, text="Empresa / Cliente:").grid(
+            row=2, column=0, padx=10, pady=5, sticky="e"
+        )
+        self.report_empresa_entry = customtkinter.CTkEntry(self.report_frame, width=280, placeholder_text="Ej: Anvic Seguridad Integral")
+        self.report_empresa_entry.grid(row=2, column=1, padx=10, pady=5, sticky="w")
+        self.report_empresa_entry.insert(0, getattr(self, "empresa_cliente", "Anvic Seguridad Integral"))
+
+        customtkinter.CTkLabel(self.report_frame, text="Sitio / Planta / Faena:").grid(
+            row=3, column=0, padx=10, pady=5, sticky="e"
+        )
+        self.report_sitio_entry = customtkinter.CTkEntry(self.report_frame, width=280, placeholder_text="Ej: Planta Quilicura - Renca")
+        self.report_sitio_entry.grid(row=3, column=1, padx=10, pady=5, sticky="w")
+        self.report_sitio_entry.insert(0, getattr(self, "sitio_planta", "Planta Quilicura - Renca"))
+
+        customtkinter.CTkLabel(self.report_frame, text="SLA Objetivo (%):").grid(
+            row=4, column=0, padx=10, pady=5, sticky="e"
+        )
+        self.report_sla_entry = customtkinter.CTkEntry(self.report_frame, width=120, placeholder_text="Ej: 99.5")
+        self.report_sla_entry.grid(row=4, column=1, padx=10, pady=5, sticky="w")
+        self.report_sla_entry.insert(0, str(getattr(self, "sla_objetivo", 99.5)))
+
+        self.report_incluir_cctv_switch = customtkinter.CTkSwitch(
+            self.report_frame,
+            text="Incluir Supervisión CCTV / Cámaras en Reporte PDF",
+        )
+        self.report_incluir_cctv_switch.grid(row=5, column=0, columnspan=2, padx=10, pady=(10, 4), sticky="w")
+        if getattr(self, "incluir_cctv_en_reporte", False):
+            self.report_incluir_cctv_switch.select()
+        else:
+            self.report_incluir_cctv_switch.deselect()
+
+        customtkinter.CTkLabel(
+            self.report_frame,
+            text="Si se desactiva, el reporte omitirá la sección de CCTV y destacará en su lugar la meta de SLA Contractual y el dictamen técnico de red.",
+            text_color="#9aa0a6",
+            justify="left",
+            wraplength=640,
+        ).grid(row=6, column=0, columnspan=2, padx=10, pady=(0, 8), sticky="w")
+
+        self.btn_guardar_reporte_config = customtkinter.CTkButton(
+            self.report_frame,
+            text="Guardar Parámetros de Reporte",
+            command=self.guardar_config_reporte,
+            fg_color="#059669",
+            hover_color="#047857",
+        )
+        self.btn_guardar_reporte_config.grid(row=7, column=0, columnspan=2, pady=12)
 
         self.license_frame = customtkinter.CTkFrame(self.admin_scroll_frame)
         if self.current_user["role"] == "super_admin":
@@ -1822,6 +2373,57 @@ class App(customtkinter.CTk):
         )
         ToastNotification(self, "Streaming", f"Configuracion actualizada. TLS: {mode} | Geo externa: {geo} | SSH: {ssh_mode}", color="green")
 
+    def _actualizar_resumen_turno_label(self):
+        try:
+            ini = self.turno_inicio_option.get() if hasattr(self, "turno_inicio_option") else getattr(self, "turno_inicio", cfg.DEFAULT_TURNO_INICIO)
+            fin = self.turno_fin_option.get() if hasattr(self, "turno_fin_option") else getattr(self, "turno_fin", cfg.DEFAULT_TURNO_FIN)
+            h_ini = int(ini.split(":")[0])
+            h_fin = int(fin.split(":")[0])
+            duracion = (h_fin - h_ini) if h_ini <= h_fin else (24 - h_ini + h_fin)
+            tipo = "Diurno" if h_ini <= h_fin else "Nocturno / Cruza Medianoche"
+            if hasattr(self, "lbl_turno_resumen"):
+                self.lbl_turno_resumen.configure(
+                    text=f"📊 Cobertura del Turno: {duracion} horas ({ini} a {fin}) • Modalidad: {tipo}"
+                )
+        except Exception:
+            pass
+
+    def _on_turno_hours_changed(self, _choice=None):
+        self._actualizar_resumen_turno_label()
+
+    def guardar_config_turno(self):
+        ini = self.turno_inicio_option.get()
+        fin = self.turno_fin_option.get()
+        self.save_turno_runtime_settings(ini, fin, nombre="Turno Operativo")
+        ToastNotification(
+            self,
+            "Turno Operacional",
+            f"Configuración guardada exitosamente: {ini} a {fin}.\nTelemetría adaptada a este turno.",
+            color="green",
+        )
+
+    def guardar_config_reporte(self):
+        empresa = self.report_empresa_entry.get().strip()
+        sitio = self.report_sitio_entry.get().strip()
+        try:
+            sla_val = float(self.report_sla_entry.get().replace(",", "."))
+            if not (0.0 <= sla_val <= 100.0):
+                raise ValueError()
+        except ValueError:
+            ToastNotification(
+                self, "Error", "El SLA objetivo debe ser un porcentaje numérico válido entre 0 y 100.", color="red"
+            )
+            return
+
+        incluir_cctv = bool(self.report_incluir_cctv_switch.get())
+        self.save_reporte_runtime_settings(empresa, sitio, sla_val, incluir_cctv)
+        ToastNotification(
+            self,
+            "Parámetros Guardados",
+            "Configuración de Reporte Ejecutivo actualizada exitosamente.",
+            color="green",
+        )
+
     def actualizar_lista_usuarios(self):
         for widget in self.user_list_frame.winfo_children():
             widget.destroy()
@@ -1886,11 +2488,21 @@ class App(customtkinter.CTk):
                 ToastNotification(self, "Error", "Campos incompletos", color="red")
                 return
 
+            current_role = self.current_user.get("role", "super_admin") if self.current_user else "super_admin"
             success, msg = self.auth.update_user(
-                user["username"], new_pwd, new_fname, self.current_user["role"]
+                current_user_role=current_role,
+                old_username=user["username"],
+                new_username=user["username"],
+                new_password=new_pwd,
+                new_fullname=new_fname,
+                new_role=user.get("role", "super_admin"),
             )
             if success:
-                ToastNotification(self, "Éxito", "Usuario actualizado", color="green")
+                # Sincronizar en memoria si es el usuario actual en sesión
+                if self.current_user and self.current_user.get("username") == user["username"]:
+                    self.current_user["full_name"] = new_fname
+                    self.current_user["password_plain"] = new_pwd
+                ToastNotification(self, "Éxito", "Usuario actualizado exitosamente", color="green")
                 self.actualizar_lista_usuarios()
                 win.destroy()
             else:
@@ -2059,10 +2671,27 @@ class App(customtkinter.CTk):
             self.verify_ssh_host_key = bool(camera_settings.get("verify_ssh_host_key", True))
             self.ssh_trust_on_first_use = bool(camera_settings.get("ssh_trust_on_first_use", False))
 
+            turno_settings = data.get("turno_settings", {})
+            self.turno_inicio = str(turno_settings.get("inicio", cfg.DEFAULT_TURNO_INICIO))
+            self.turno_fin = str(turno_settings.get("fin", cfg.DEFAULT_TURNO_FIN))
+            self.turno_nombre = str(turno_settings.get("nombre", cfg.DEFAULT_TURNO_NOMBRE))
+
+            reporte_settings = data.get("reporte_settings", {})
+            self.empresa_cliente = str(reporte_settings.get("empresa_cliente", "Anvic Seguridad Integral"))
+            self.sitio_planta = str(reporte_settings.get("sitio_planta", "Planta Quilicura - Renca"))
+            self.sla_objetivo = float(reporte_settings.get("sla_objetivo", 99.5))
+            self.incluir_cctv_en_reporte = bool(reporte_settings.get("incluir_cctv", False))
+
             self.ping_interval = data.get("intervalo_ping", 15)
             if self.ping_interval < 1: self.ping_interval = 1
 
             for equipo in self.equipos_a_monitorear:
+                if not equipo.get("ubicacion"):
+                    lbl_low = equipo.get("label", "").lower()
+                    if "quilicura" in lbl_low:
+                        equipo["ubicacion"] = "Quilicura"
+                    elif "renca" in lbl_low:
+                        equipo["ubicacion"] = "Renca"
                 ts_str = equipo.get("disconnection_timestamp")
                 if ts_str:
                     try: equipo["disconnection_timestamp"] = datetime.datetime.fromisoformat(ts_str)
@@ -2091,17 +2720,6 @@ class App(customtkinter.CTk):
 
     def create_monitors(self):
         print(f"Creando monitores para {len(self.equipos_a_monitorear)} equipos...")
-        try:
-            val = self.ping_interval_entry.get()
-            if val:
-                new_interval = int(val)
-                if new_interval < 1:
-                    new_interval = 1
-                    self.ping_interval_entry.delete(0, "end")
-                    self.ping_interval_entry.insert(0, str(new_interval))
-                self.ping_interval = new_interval
-        except (ValueError, AttributeError):
-            pass
 
         for widget in self.monitor_frame.winfo_children():
             widget.destroy()
@@ -2140,8 +2758,9 @@ class App(customtkinter.CTk):
                 desconexiones_count=desconexiones,
                 mac=mac_address,
                 disconnection_timestamp=disconnection_ts,
+                ubicacion=equipo.get("ubicacion", ""),
             )
-            monitor.grid(row=row, column=col, padx=10, pady=10, sticky="nsew")
+            monitor.grid(row=row, column=col, padx=7, pady=7, sticky="nsew")
 
             self.monitors[equipo["ip"]] = monitor
 
@@ -2160,22 +2779,33 @@ class App(customtkinter.CTk):
             thread.start()
 
     def agregar_equipo(self):
-        ip = self.ip_entry.get()
-        etiqueta = self.etiqueta_entry.get()
+        ip = self.ip_entry.get().strip()
+        etiqueta = self.etiqueta_entry.get().strip()
+        ubicacion = self.ubicacion_entry.get().strip() if hasattr(self, "ubicacion_entry") else ""
         if ip and etiqueta:
+            if not ubicacion:
+                lbl_low = etiqueta.lower()
+                if "quilicura" in lbl_low:
+                    ubicacion = "Quilicura"
+                elif "renca" in lbl_low:
+                    ubicacion = "Renca"
             nuevo_equipo = {
                 "ip": ip,
                 "label": etiqueta,
+                "ubicacion": ubicacion,
                 "desconexiones_count": 0,
                 "mac_address": "Buscando MAC...",
                 "disconnection_timestamp": None,
             }
             self.equipos_a_monitorear.append(nuevo_equipo)
             self.create_monitors()
+            self.guardar_equipos()
             if hasattr(self, "cameras_tab_controller"):
                 self.cameras_tab_controller._refresh_camera_list()
             self.ip_entry.delete(0, "end")
             self.etiqueta_entry.delete(0, "end")
+            if hasattr(self, "ubicacion_entry"):
+                self.ubicacion_entry.delete(0, "end")
 
     def remover_equipo(self):
         query = self.remove_entry.get().strip()
@@ -2260,14 +2890,18 @@ class App(customtkinter.CTk):
 
     def guardar_equipos(self):
         try:
-            new_interval = int(self.ping_interval_entry.get())
-            if new_interval < 1:
-                new_interval = 1
-            self.ping_interval = new_interval
+            if hasattr(self, "admin_ping_interval_entry") and self.admin_ping_interval_entry.winfo_exists():
+                try:
+                    val = int(self.admin_ping_interval_entry.get().strip())
+                    if val >= 1:
+                        self.ping_interval = val
+                except ValueError:
+                    pass
             lista_para_guardar = []
             for equipo in self.equipos_a_monitorear:
                 ip = equipo["ip"]
                 equipo_a_guardar = equipo.copy()
+                equipo_a_guardar["ubicacion"] = equipo.get("ubicacion", "")
                 if ip in self.monitors:
                     monitor = self.monitors[ip]
                     equipo_a_guardar["desconexiones_count"] = (
@@ -2303,6 +2937,17 @@ class App(customtkinter.CTk):
                     "verify_ssh_host_key": getattr(self, "verify_ssh_host_key", True),
                     "ssh_trust_on_first_use": getattr(self, "ssh_trust_on_first_use", False),
                 },
+                "turno_settings": {
+                    "inicio": getattr(self, "turno_inicio", cfg.DEFAULT_TURNO_INICIO),
+                    "fin": getattr(self, "turno_fin", cfg.DEFAULT_TURNO_FIN),
+                    "nombre": getattr(self, "turno_nombre", cfg.DEFAULT_TURNO_NOMBRE),
+                },
+                "reporte_settings": {
+                    "empresa_cliente": getattr(self, "empresa_cliente", "Anvic Seguridad Integral"),
+                    "sitio_planta": getattr(self, "sitio_planta", "Planta Quilicura - Renca"),
+                    "sla_objetivo": getattr(self, "sla_objetivo", 99.5),
+                    "incluir_cctv": getattr(self, "incluir_cctv_en_reporte", False),
+                },
             }
             config_path = os.path.join(BASE_PATH, "equipos_guardados.json") # Path base
             self.secure_config.save(data_to_save, config_path)
@@ -2313,11 +2958,179 @@ class App(customtkinter.CTk):
         except Exception as e:
             print(f"Error al guardar: {e}")
 
+    def guardar_intervalo_ping_admin(self):
+        try:
+            val = int(self.admin_ping_interval_entry.get().strip())
+            if val < 1:
+                val = 1
+                self.admin_ping_interval_entry.delete(0, "end")
+                self.admin_ping_interval_entry.insert(0, "1")
+            self.ping_interval = val
+            self.guardar_equipos()
+            ToastNotification(
+                self,
+                "Configuración Guardada",
+                f"Intervalo de ping actualizado a {val} segundos.",
+                color="green",
+            )
+        except ValueError:
+            ToastNotification(
+                self,
+                "Error",
+                "El intervalo de ping debe ser un número entero mayor o igual a 1.",
+                color="red",
+            )
+
+    def reordenar_equipos(self, ip_origen: str, ip_destino: str):
+        """Intercambia o mueve una tarjeta arrastrada a una nueva posición en el grid a 60 FPS."""
+        idx_origen = next((i for i, eq in enumerate(self.equipos_a_monitorear) if eq.get("ip") == ip_origen), None)
+        idx_destino = next((i for i, eq in enumerate(self.equipos_a_monitorear) if eq.get("ip") == ip_destino), None)
+        if idx_origen is not None and idx_destino is not None and idx_origen != idx_destino:
+            item = self.equipos_a_monitorear.pop(idx_origen)
+            self.equipos_a_monitorear.insert(idx_destino, item)
+            self.reorganizar_grid_monitores()
+            self._programar_guardado_silencioso()
+
+    def mover_equipo_relativo(self, ip: str, delta: int):
+        """Mueve un equipo hacia la izquierda (-1) o derecha (+1) en la cuadrícula de forma instantánea y fluida."""
+        idx = next((i for i, eq in enumerate(self.equipos_a_monitorear) if eq.get("ip") == ip), None)
+        if idx is None:
+            return
+        nuevo_idx = max(0, min(len(self.equipos_a_monitorear) - 1, idx + delta))
+        if nuevo_idx != idx:
+            item = self.equipos_a_monitorear.pop(idx)
+            self.equipos_a_monitorear.insert(nuevo_idx, item)
+            self.reorganizar_grid_monitores()
+            self._programar_guardado_silencioso()
+
+    def reorganizar_grid_monitores(self):
+        """Reorganiza visualmente el grid de tarjetas sin parpadeos ni interrupciones en los hilos."""
+        max_cols = 4
+        for idx, eq in enumerate(self.equipos_a_monitorear):
+            ip = eq.get("ip")
+            if ip in self.monitors:
+                row = idx // max_cols
+                col = idx % max_cols
+                self.monitors[ip].grid(row=row, column=col, padx=7, pady=7, sticky="nsew")
+
+    def _programar_guardado_silencioso(self):
+        """Debounce de guardado a disco para mantener 60 FPS sin congelamientos por cifrado Fernet."""
+        if hasattr(self, "_save_timer_id") and self._save_timer_id is not None:
+            try:
+                self.after_cancel(self._save_timer_id)
+            except Exception:
+                pass
+        self._save_timer_id = self.after(1200, self._guardar_equipos_silencioso)
+
+    def _guardar_equipos_silencioso(self):
+        """Persiste la configuración de equipos cifrada en disco sin bloquear la interfaz."""
+        self._save_timer_id = None
+        try:
+            self.guardar_equipos()
+        except Exception as e:
+            print(f"Error guardando equipos silenciosamente: {e}")
+
+    def abrir_modal_editar_equipo(self, ip: str):
+        """Abre modal interactivo para editar nombre, IP y locación de un equipo."""
+        if hasattr(self, "_modal_edicion_activo") and self._modal_edicion_activo is not None:
+            try:
+                if self._modal_edicion_activo.winfo_exists():
+                    self._modal_edicion_activo.lift()
+                    self._modal_edicion_activo.focus_force()
+                    return
+            except Exception:
+                self._modal_edicion_activo = None
+
+        equipo = next((eq for eq in self.equipos_a_monitorear if eq.get("ip") == ip), None)
+        if not equipo:
+            return
+        self._modal_edicion_activo = ModalEditarEquipo(self, equipo)
+
+    def actualizar_datos_equipo(self, original_ip: str, new_ip: str, new_label: str, new_ubicacion: str):
+        """Actualiza la información de un equipo desde el modal interactivo."""
+        equipo = next((eq for eq in self.equipos_a_monitorear if eq.get("ip") == original_ip), None)
+        if not equipo:
+            return
+
+        ip_cambio = (original_ip != new_ip)
+        equipo["label"] = new_label
+        equipo["ubicacion"] = new_ubicacion
+        equipo["ip"] = new_ip
+
+        if ip_cambio:
+            self.create_monitors()
+        else:
+            if original_ip in self.monitors:
+                m = self.monitors[original_ip]
+                m.label = new_label
+                m.ubicacion = new_ubicacion
+                m.label_name.configure(text=new_label)
+                badge_txt = f"📍 {new_ubicacion.upper()}" if new_ubicacion else "📍 SITIO"
+                m.ubicacion_badge.configure(text=badge_txt)
+
+        self.guardar_equipos()
+        if hasattr(self, "telemetria_controller") and self.telemetria_controller:
+            try:
+                self.telemetria_controller.actualizar_graficos(forzar=True)
+            except Exception:
+                pass
+
+        ToastNotification(
+            self,
+            "Activo Actualizado",
+            f"Equipo '{new_label}' ({new_ip}) actualizado con éxito.",
+            color="green",
+        )
+
+    def eliminar_equipo_directo(self, ip: str):
+        """Elimina un equipo inmediatamente tras confirmación o botón del modal."""
+        self.equipos_a_monitorear = [eq for eq in self.equipos_a_monitorear if eq.get("ip") != ip]
+        if ip in self.monitors:
+            try:
+                self.monitors[ip]._ping_thread_active = False
+            except Exception:
+                pass
+        self.create_monitors()
+        self.guardar_equipos()
+        if hasattr(self, "telemetria_controller") and self.telemetria_controller:
+            try:
+                self.telemetria_controller.actualizar_graficos(forzar=True)
+            except Exception:
+                pass
+        ToastNotification(
+            self,
+            "Activo Eliminado",
+            f"Equipo con IP {ip} eliminado correctamente.",
+            color="green",
+        )
+
+    def save_turno_runtime_settings(self, inicio: str, fin: str, nombre: str = "Turno Operativo"):
+        self.turno_inicio = inicio
+        self.turno_fin = fin
+        self.turno_nombre = nombre
+        self.guardar_equipos()
+
+    def save_reporte_runtime_settings(
+        self,
+        empresa_cliente: str,
+        sitio_planta: str,
+        sla_objetivo: float,
+        incluir_cctv: bool,
+    ):
+        self.empresa_cliente = empresa_cliente.strip() or "Empresa Cliente"
+        self.sitio_planta = sitio_planta.strip() or "Sitio / Planta"
+        self.sla_objetivo = float(sla_objetivo)
+        self.incluir_cctv_en_reporte = bool(incluir_cctv)
+        self.guardar_equipos()
+        if hasattr(self, "telemetria_controller") and self.telemetria_controller:
+            self.telemetria_controller.actualizar_graficos(forzar=True)
+
     def cargar_equipos(self):
         try:
             self.cargar_configuracion_inicial()
-            self.ping_interval_entry.delete(0, "end")
-            self.ping_interval_entry.insert(0, str(self.ping_interval))
+            if hasattr(self, "admin_ping_interval_entry") and self.admin_ping_interval_entry.winfo_exists():
+                self.admin_ping_interval_entry.delete(0, "end")
+                self.admin_ping_interval_entry.insert(0, str(self.ping_interval))
             self.create_monitors()
             if hasattr(self, "cameras_tab_controller"):
                 self.cameras_tab_controller._refresh_camera_list()
@@ -2436,6 +3249,21 @@ class App(customtkinter.CTk):
         else:
             user_display = f"Operador de Red • {role_label}"
 
+        modo_telemetria = "Semanal (7D x 24h)"
+        filtro_host = "Todos los Equipos"
+        turno_ini = getattr(self, "turno_inicio", "07:00")
+        turno_fin = getattr(self, "turno_fin", "18:00")
+        if hasattr(self, "telemetria_controller") and self.telemetria_controller:
+            modo_telemetria = getattr(self.telemetria_controller, "modo_heatmap", "Semanal (7D x 24h)")
+            filtro_host = getattr(self.telemetria_controller, "filtro_host", "Todos los Equipos")
+
+        if "Turno" in modo_telemetria:
+            periodo_evaluado = f"Turno {turno_ini} a {turno_fin}"
+        elif "Semanal" in modo_telemetria:
+            periodo_evaluado = "Últimos 7 Días"
+        else:
+            periodo_evaluado = "Últimas 24 Horas"
+
         try:
             build_network_report(
                 ReportContext(
@@ -2451,6 +3279,15 @@ class App(customtkinter.CTk):
                     tls_strict=bool(getattr(self, "verify_tls_certificates", False)),
                     cameras_count=len(getattr(self, "cameras_config", [])),
                     camera_max_streams=int(getattr(self, "camera_max_streams", 1)),
+                    empresa_cliente=getattr(self, "empresa_cliente", "Anvic Seguridad Integral"),
+                    sitio_planta=getattr(self, "sitio_planta", "Planta Quilicura - Renca"),
+                    sla_objetivo=float(getattr(self, "sla_objetivo", 99.5)),
+                    incluir_cctv=bool(getattr(self, "incluir_cctv_en_reporte", False)),
+                    periodo_evaluado=periodo_evaluado,
+                    modo_telemetria=modo_telemetria,
+                    filtro_host=filtro_host,
+                    turno_inicio=turno_ini,
+                    turno_fin=turno_fin,
                     osint_data=getattr(self, "osint_tab", None).module_results if hasattr(self, "osint_tab") else None,
                 )
             )

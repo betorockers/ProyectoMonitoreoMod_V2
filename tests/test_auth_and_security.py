@@ -93,6 +93,52 @@ def test_role_hierarchy_and_permissions(temp_env):
     assert ok
 
 
+def test_update_user_superuser_self_and_roles(temp_env):
+    """Valida que el super_admin pueda actualizar su nombre y contraseña sin ser bloqueado."""
+    tmpdir, _, _, auth = temp_env
+
+    # 1. Crear super_admin BetoDev
+    ok, msg = auth.create_initial_superuser("BetoDev", "Complex@Pass123", "Beto Developer")
+    assert ok
+
+    # 2. Actualizar nombre completo a 'Omar Toledo' y nueva contraseña '@B3t0R0ck3rs'
+    ok, msg = auth.update_user(
+        current_user_role="super_admin",
+        old_username="BetoDev",
+        new_username="BetoDev",
+        new_password="@B3t0R0ck3rs",
+        new_fullname="Omar Toledo",
+        new_role="super_admin",
+    )
+    assert ok, f"Fallo al actualizar super_admin: {msg}"
+    assert "exitosamente" in msg
+
+    # Verificar que los datos en memoria y disco se hayan actualizado
+    user = auth.users["BetoDev"]
+    assert user["full_name"] == "Omar Toledo"
+    assert user["password_plain"] == "@B3t0R0ck3rs"
+
+    # Verificar autenticación con nueva contraseña
+    auth_res = auth.authenticate("BetoDev", "@B3t0R0ck3rs")
+    assert auth_res is not None
+    assert auth_res["full_name"] == "Omar Toledo"
+
+    # 3. Validar llamada simplificada de 4 argumentos: update_user(username, new_pwd, new_fname, role)
+    ok_legacy, msg_legacy = auth.update_user("BetoDev", "@B3t0R0ck3rs", "Omar Toledo Staff", "super_admin")
+    assert ok_legacy
+    assert auth.users["BetoDev"]["full_name"] == "Omar Toledo Staff"
+
+    # 4. Validar que un operador no pueda actualizar usuarios
+    ok_denied, msg_denied = auth.update_user(
+        current_user_role="operator",
+        old_username="BetoDev",
+        new_fullname="Intruso",
+    )
+    assert not ok_denied
+    assert "Permiso denegado" in msg_denied
+
+
+
 def test_user_display_formatting_top_tier(temp_env):
     tmpdir, _, _, auth = temp_env
 

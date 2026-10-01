@@ -161,32 +161,71 @@ class AuthManager:
         self._save_users()
         return True, "Contraseña actualizada exitosamente."
 
-    def update_user(self, current_user_role, old_username, new_username, new_password, new_fullname, new_role):
-        """Actualiza la información de un usuario existente (Super Admin)."""
+    def update_user(
+        self,
+        current_user_role="super_admin",
+        old_username=None,
+        new_username=None,
+        new_password=None,
+        new_fullname=None,
+        new_role=None,
+        **kwargs,
+    ):
+        """Actualiza la información de un usuario existente (Super Admin).
+        Soporta la firma canónica completa o invocaciones posicionales de 4 argumentos:
+        update_user(username, new_password, new_fullname, current_user_role)
+        """
+        # Detección inteligente si se llamó con la firma simplificada de 4 argumentos:
+        if current_user_role in self.users and (new_fullname is None and new_role is None):
+            caller_username = current_user_role
+            passed_pwd = old_username
+            passed_fname = new_username
+            passed_role = new_password or "super_admin"
+
+            old_username = caller_username
+            new_username = caller_username
+            new_password = passed_pwd
+            new_fullname = passed_fname
+            new_role = self.users[old_username].get("role", "super_admin")
+            current_user_role = passed_role
+
+        if not old_username and current_user_role in self.users:
+            old_username = current_user_role
+            current_user_role = self.users[old_username].get("role", "super_admin")
+
         if current_user_role != 'super_admin':
-            return False, "Permiso denegado."
-            
-        if old_username not in self.users:
+            return False, "Permiso denegado: solo el super_admin puede editar usuarios."
+
+        if not old_username or old_username not in self.users:
             return False, "Usuario original no existe."
-            
+
+        new_username = new_username or old_username
         if new_username != old_username and new_username in self.users:
             return False, "El nuevo nombre de usuario ya existe."
-            
+
         user_data = self.users[old_username]
-        
+
         # Actualizar datos
-        user_data['full_name'] = new_fullname
-        user_data['role'] = new_role
-        
-        if new_password and new_password.strip():
-            user_data['password_hash'] = self._hash_password(new_password)
-            user_data['password_plain'] = new_password
-            
+        if new_fullname is not None:
+            user_data['full_name'] = str(new_fullname).strip()
+        if new_role is not None:
+            user_data['role'] = new_role
+
+        if new_password and str(new_password).strip():
+            pwd_clean = str(new_password).strip()
+            # Si cambió respecto a la existente, validamos complejidad básica
+            if pwd_clean != user_data.get('password_plain'):
+                is_valid, msg = self._validate_password(pwd_clean)
+                if not is_valid:
+                    return False, msg
+            user_data['password_hash'] = self._hash_password(pwd_clean)
+            user_data['password_plain'] = pwd_clean
+
         # Mover si cambia el username
         if new_username != old_username:
             self.users[new_username] = user_data
             del self.users[old_username]
-            
+
         self._save_users()
         return True, "Usuario actualizado exitosamente."
 

@@ -8,6 +8,7 @@ gráficos de latencia con umbrales SLA y tabla de estado con barras de salud emb
 from __future__ import annotations
 
 import datetime
+import threading
 import tkinter as tk
 import customtkinter
 import matplotlib
@@ -33,12 +34,21 @@ class HistoryTab:
 
         self.filtro_host = "Todos los Equipos"
         self.modo_heatmap = "Semanal (7D x 24h)"
+        self.opt_semanal = None
+        self.opt_equipo = None
+        self.seg_heatmap = None
         self._refresh_job = None
+        self._worker_busy = False
+        self._pending_refresh = False
+        self._gauges_pool = {}
+        self._table_rows_pool = {}
 
     def inicializar(self, contenedor=None, es_popout: bool = False) -> None:
         """Construye todos los componentes de la interfaz de telemetría."""
         self.es_popout = es_popout
         self.contenedor_actual = contenedor if contenedor is not None else self.frame
+        self._gauges_pool = {}
+        self._table_rows_pool = {}
 
         for w in self.contenedor_actual.winfo_children():
             try:
@@ -106,23 +116,44 @@ class HistoryTab:
             controls_frame,
             values=equipos_nombres,
             command=self._on_host_change,
-            width=170,
+            width=165,
             fg_color="#334155",
             button_color="#475569",
         )
         self.opt_host.set(self.filtro_host)
         self.opt_host.pack(side="left", padx=5)
 
-        # Toggle de modo Heatmap
-        self.seg_heatmap = customtkinter.CTkSegmentedButton(
+        # Selector Semanal (Dropdown con opciones 24h / Turno)
+        semanal_opciones = ["Semanal (7D x 24h)", "Semanal (7D x Turno)"]
+        self.opt_semanal = customtkinter.CTkOptionMenu(
             controls_frame,
-            values=["Semanal (7D x 24h)", "Por Equipo (24h)"],
-            command=self._on_heatmap_mode_change,
-            fg_color="#334155",
-            selected_color="#0284C7",
+            values=semanal_opciones,
+            command=self._on_semanal_change,
+            width=175,
+            fg_color="#0284C7" if "Semanal" in self.modo_heatmap else "#334155",
+            button_color="#0369A1" if "Semanal" in self.modo_heatmap else "#475569",
         )
-        self.seg_heatmap.set(self.modo_heatmap)
-        self.seg_heatmap.pack(side="left", padx=5)
+        if "Semanal" in self.modo_heatmap:
+            self.opt_semanal.set(self.modo_heatmap)
+        else:
+            self.opt_semanal.set("Semanal (7D x 24h)")
+        self.opt_semanal.pack(side="left", padx=5)
+
+        # Selector Por Equipo (Dropdown con opciones 24h / Turno)
+        equipo_opciones = ["Por Equipo (24h)", "Por Equipo (Turno)"]
+        self.opt_equipo = customtkinter.CTkOptionMenu(
+            controls_frame,
+            values=equipo_opciones,
+            command=self._on_equipo_change,
+            width=170,
+            fg_color="#0284C7" if "Por Equipo" in self.modo_heatmap else "#334155",
+            button_color="#0369A1" if "Por Equipo" in self.modo_heatmap else "#475569",
+        )
+        if "Por Equipo" in self.modo_heatmap:
+            self.opt_equipo.set(self.modo_heatmap)
+        else:
+            self.opt_equipo.set("Por Equipo (24h)")
+        self.opt_equipo.pack(side="left", padx=5)
 
         # Botón Refrescar
         customtkinter.CTkButton(
@@ -149,13 +180,16 @@ class HistoryTab:
             ("downtime", "Downtime Total", "0s", "#EF4444"),
         ]
 
+        self.kpi_title_labels = {}
         for idx, (kpi_id, title, val_def, color) in enumerate(kpi_defs):
             card = customtkinter.CTkFrame(self.kpi_frame, fg_color="#242427", corner_radius=8)
             card.grid(row=0, column=idx, padx=4, sticky="nsew")
 
-            customtkinter.CTkLabel(
+            lbl_title = customtkinter.CTkLabel(
                 card, text=title, font=("Arial", 11, "bold"), text_color="#94A3B8"
-            ).pack(anchor="w", padx=12, pady=(8, 2))
+            )
+            lbl_title.pack(anchor="w", padx=12, pady=(8, 2))
+            self.kpi_title_labels[kpi_id] = lbl_title
 
             val_lbl = customtkinter.CTkLabel(
                 card, text=val_def, font=("Arial", 20, "bold"), text_color=color
@@ -171,13 +205,13 @@ class HistoryTab:
         self.frame_latencia = customtkinter.CTkFrame(self.graficos_frame, fg_color="#242427", corner_radius=8)
         self.frame_latencia.pack(fill="both", expand=True, pady=6)
 
-        lbl_lat_title = customtkinter.CTkLabel(
+        self.lbl_lat_title = customtkinter.CTkLabel(
             self.frame_latencia,
             text="📈 Comportamiento de Latencia Temporal (Umbral SLA: 100 ms)",
             font=("Arial", 14, "bold"),
             text_color="#F8FAFC",
         )
-        lbl_lat_title.pack(anchor="w", padx=12, pady=(8, 2))
+        self.lbl_lat_title.pack(anchor="w", padx=12, pady=(8, 2))
 
         self.fig_latencia = Figure(figsize=(8, 2.7), facecolor="#242427", dpi=100)
         self.ax_latencia = self.fig_latencia.add_subplot(111)
@@ -263,8 +297,40 @@ class HistoryTab:
         self.filtro_host = selected_host
         self.actualizar_graficos()
 
-    def _on_heatmap_mode_change(self, mode: str) -> None:
+    def _on_semanal_change(self, mode: str) -> None:
         self.modo_heatmap = mode
+        self._actualizar_estilo_selectores()
+        self.actualizar_graficos()
+
+    def _on_equipo_change(self, mode: str) -> None:
+        self.modo_heatmap = mode
+        self._actualizar_estilo_selectores()
+        self.actualizar_graficos()
+
+    def _actualizar_estilo_selectores(self) -> None:
+        """Sincroniza visualmente los colores de los dropdowns activo (#0284C7) vs inactivo (#334155)."""
+        es_semanal = "Semanal" in self.modo_heatmap
+        if hasattr(self, "opt_semanal") and self.opt_semanal and self.opt_semanal.winfo_exists():
+            self.opt_semanal.configure(
+                fg_color="#0284C7" if es_semanal else "#334155",
+                button_color="#0369A1" if es_semanal else "#475569",
+            )
+        if hasattr(self, "opt_equipo") and self.opt_equipo and self.opt_equipo.winfo_exists():
+            self.opt_equipo.configure(
+                fg_color="#334155" if es_semanal else "#0284C7",
+                button_color="#475569" if es_semanal else "#0369A1",
+            )
+
+    def _on_heatmap_mode_change(self, mode: str) -> None:
+        """Compatibilidad regresiva para cambios de modo directos."""
+        self.modo_heatmap = mode
+        if "Semanal" in mode:
+            if hasattr(self, "opt_semanal") and self.opt_semanal and self.opt_semanal.winfo_exists():
+                self.opt_semanal.set(mode)
+        elif "Por Equipo" in mode:
+            if hasattr(self, "opt_equipo") and self.opt_equipo and self.opt_equipo.winfo_exists():
+                self.opt_equipo.set(mode)
+        self._actualizar_estilo_selectores()
         self.actualizar_graficos()
 
     def _on_heatmap_hover(self, event):
@@ -278,11 +344,27 @@ class HistoryTab:
                 self.canvas_heatmap.draw_idle()
             return
 
-        r_idx = int(round(event.ydata))
-        c_idx = int(round(event.xdata))
-        text = ""
+        nrows = getattr(self, "_hm_nrows", len(getattr(self, "_hm_dispo", [])))
+        ncols = getattr(self, "_hm_ncols", len(getattr(self, "_hm_horas_turno", [])))
+        if nrows == 0 or ncols == 0:
+            return
 
-        if getattr(self, "_hm_mode", "") == "Por Equipo (24h)":
+        # Despejar el índice de fila r (dado y_pos = (nrows - 1) - r => r = (nrows - 1) - y_pos)
+        r_idx = int(round((nrows - 1) - event.ydata))
+        c_idx = int(round(event.xdata))
+
+        if r_idx < 0 or r_idx >= nrows or c_idx < 0 or c_idx >= ncols:
+            if self.annot_hm.get_visible():
+                self.annot_hm.set_visible(False)
+                self.canvas_heatmap.draw_idle()
+            return
+
+        text = ""
+        horas_turno = getattr(self, "_hm_horas_turno", list(range(24)))
+        hora_real = horas_turno[c_idx] if 0 <= c_idx < len(horas_turno) else c_idx
+        hm_mode = getattr(self, "_hm_mode", "")
+
+        if "Por Equipo" in hm_mode:
             equipos_hm = getattr(self, "_hm_equipos", [])
             if 0 <= r_idx < len(equipos_hm):
                 eq = equipos_hm[r_idx]
@@ -290,35 +372,49 @@ class HistoryTab:
                 ip = eq.get("ip", "---")
                 dispo_mat = getattr(self, "_hm_dispo", [])
 
-                if 0 <= c_idx < 24 and r_idx < len(dispo_mat):
+                if 0 <= c_idx < len(horas_turno) and r_idx < len(dispo_mat):
                     val = dispo_mat[r_idx][c_idx]
-                    pct = int(val * 100)
-                    estado = "🟢 Nominal" if pct >= 99 else "🟡 Parcial" if pct >= 70 else "🔴 Inestable/Offline"
-                    text = f"🏷️ {label_completo}\n🌐 IP: {ip}\n⏰ Franja: {c_idx:02d}:00 - {c_idx:02d}:59\n📊 SLA Bloque: {pct}% ({estado})"
+                    pct = int(round(val * 100))
+                    if pct == 0:
+                        estado = "⚪ Sin Registros / Inactivo"
+                    elif pct >= 99:
+                        estado = "🟢 Nominal"
+                    elif pct >= 70:
+                        estado = "🟡 Parcial"
+                    else:
+                        estado = "🔴 Inestable/Offline"
+                    text = f"🏷️ {label_completo}\n🌐 IP: {ip}\n⏰ Franja: {hora_real:02d}:00 - {hora_real:02d}:59\n📊 SLA Bloque: {pct}% ({estado})"
                 else:
-                    metricas = getattr(self.app, "metricas", None)
-                    uptime = metricas.calcular_uptime(ip) if metricas else 100.0
-                    text = f"🏷️ {label_completo}\n🌐 IP: {ip}\n🎯 SLA Global 24h: {uptime:.1f}%"
+                    text = f"🏷️ {label_completo}\n🌐 IP: {ip}"
 
-        elif getattr(self, "_hm_mode", "") == "Semanal (7D x 24h)":
+        elif "Semanal" in hm_mode:
             dias_hm = getattr(self, "_hm_dias", [])
             if 0 <= r_idx < len(dias_hm):
                 dia_nombre = dias_hm[r_idx]
-                disp_sem = getattr(self, "_hm_disp_semanal", [])
-                if 0 <= c_idx < 24 and r_idx < len(disp_sem):
+                disp_sem = getattr(self, "_hm_dispo", [])
+                if 0 <= c_idx < len(horas_turno) and r_idx < len(disp_sem):
                     val = disp_sem[r_idx][c_idx]
-                    pct = int(val * 100)
-                    estado = "🟢 Nominal" if pct >= 99 else "🟡 Degradado" if pct >= 70 else "🔴 Caído"
-                    text = f"📅 Día: {dia_nombre}\n⏰ Franja: {c_idx:02d}:00 - {c_idx:02d}:59\n📊 Disponibilidad: {pct}% ({estado})"
+                    pct = int(round(val * 100))
+                    if pct == 0:
+                        estado = "⚪ Sin Registros / Inactivo"
+                    elif pct >= 99:
+                        estado = "🟢 Nominal"
+                    elif pct >= 70:
+                        estado = "🟡 Degradado"
+                    else:
+                        estado = "🔴 Caído"
+                    text = f"📅 Día: {dia_nombre}\n⏰ Franja: {hora_real:02d}:00 - {hora_real:02d}:59\n📊 Disponibilidad: {pct}% ({estado})"
                 else:
                     text = f"📅 Día: {dia_nombre}"
 
         if text:
-            clamped_x = max(0.5, min(17.5, event.xdata))
+            max_limit = max(0.5, len(horas_turno) - 2.5)
+            clamped_x = max(0.5, min(max_limit, event.xdata))
             self.annot_hm.xy = (clamped_x, event.ydata)
             self.annot_hm.set_text(text)
             if not self.annot_hm.get_visible():
                 self.annot_hm.set_visible(True)
+            self.canvas_heatmap.draw_idle()
         else:
             if self.annot_hm.get_visible():
                 self.annot_hm.set_visible(False)
@@ -387,101 +483,125 @@ class HistoryTab:
         self.inicializar(contenedor=self.frame, es_popout=False)
         self.actualizar_graficos()
 
-    def actualizar_graficos(self) -> None:
-        """Redibuja toda la telemetría con datos frescos de SQLite."""
+    def actualizar_graficos(self, forzar: bool = False) -> None:
+        """
+        Dispara la actualización asíncrona de telemetría sin bloquear el hilo principal.
+        Utiliza un worker daemon en segundo plano para cálculo en lotes ultra optimizado.
+        """
         try:
             if not self.app.winfo_exists() or not self.telemetria_frame or not self.telemetria_frame.winfo_exists():
                 return
         except Exception:
             return
 
-        metricas = getattr(self.app, "metricas", None)
-        if not metricas:
+        if getattr(self, "_worker_busy", False):
+            self._pending_refresh = True
             return
 
-        # ── A. Calcular KPIs Consolidados ──────────────────────────────────────
-        total_downtime_sec = 0.0
-        total_microcortes = 0
-        uptimes = []
-        latencias_actuales = []
-        latencias_historicas = []
+        self._worker_busy = True
+        t = threading.Thread(target=self._async_fetch_telemetry, daemon=True)
+        t.start()
+
+    def _async_fetch_telemetry(self) -> None:
+        """Worker en segundo plano: recolecta y procesa métricas en RAM sin saturar la UI."""
+        try:
+            metricas = getattr(self.app, "metricas", None)
+            if not metricas:
+                self._worker_busy = False
+                return
+
+            equipos = getattr(self.app, "equipos_a_monitorear", [])
+            turno_ini = getattr(self.app, "turno_inicio", "07:00")
+            turno_fin = getattr(self.app, "turno_fin", "18:00")
+            filtro = self.filtro_host
+            modo = self.modo_heatmap
+
+            monitors = getattr(self.app, "monitors", {})
+            monitors_status = {ip: getattr(m, "status", "Desconectado") for ip, m in monitors.items()}
+
+            payload = metricas.obtener_telemetria_completa(
+                equipos=equipos,
+                filtro_host=filtro,
+                modo=modo,
+                turno_inicio=turno_ini,
+                turno_fin=turno_fin,
+                monitors_status=monitors_status,
+            )
+
+            # Notificar al hilo principal de la UI para renderizado rápido
+            self.app.after(0, self._render_telemetry_ui, payload)
+        except Exception as e:
+            print(f"[TelemetryTab] Error en worker asíncrono: {e}")
+            self._worker_busy = False
+
+    def _render_telemetry_ui(self, payload: dict) -> None:
+        """Renderiza los datos procesados en la UI sin congelar la ventana ni destruir widgets."""
+        self._worker_busy = False
+        if getattr(self, "_pending_refresh", False):
+            self._pending_refresh = False
+            self.app.after(50, self.actualizar_graficos)
+
+        try:
+            if not self.app.winfo_exists() or not self.telemetria_frame or not self.telemetria_frame.winfo_exists():
+                return
+        except Exception:
+            return
 
         equipos = getattr(self.app, "equipos_a_monitorear", [])
         if hasattr(self, "opt_host"):
             equipos_nombres = ["Todos los Equipos"] + [eq.get("label", eq.get("ip")) for eq in equipos]
             self.opt_host.configure(values=equipos_nombres)
 
-        for eq in equipos:
-            ip = eq["ip"]
-            up = metricas.calcular_uptime(ip)
-            uptimes.append(up)
+        # ── 1. Actualizar Subtítulo & Insignia de Turno ───────────────────────
+        if payload.get("es_turno", False):
+            badge_txt = f"🕒 Turno Operacional: {payload['turno_inicio']} a {payload['turno_fin']} • Supervisión Adaptada"
+            self.lbl_subtitulo.configure(text=badge_txt, text_color="#38BDF8")
+        else:
+            self.lbl_subtitulo.configure(
+                text="Supervisión en tiempo real de latencia, SLA de disponibilidad y microcortes de enlace (24h / 7 Días)",
+                text_color="#94A3B8",
+            )
 
-            if hasattr(metricas, "analizar_desconexiones_y_downtime"):
-                res_down = metricas.analizar_desconexiones_y_downtime(ip, periodo_horas=24)
-                total_downtime_sec += res_down.get("downtime_segundos", 0.0)
-                total_microcortes += res_down.get("microcortes_count", 0)
+        # ── 2. Actualizar Ribbon KPI ──────────────────────────────────────────
+        if "uptime" in getattr(self, "kpi_title_labels", {}):
+            self.kpi_title_labels["uptime"].configure(text=payload.get("kpi_uptime_title", "SLA Global (24h)"))
 
-            datos_recientes = metricas.obtener_datos(ip, periodo_horas=1)
-            if datos_recientes and datos_recientes["latencias"]:
-                ultimas = [l for l in datos_recientes["latencias"] if l and l > 0]
-                if ultimas:
-                    latencias_actuales.append(ultimas[-1])
-
-        avg_uptime = sum(uptimes) / len(uptimes) if uptimes else 100.0
-        avg_latencia = sum(latencias_actuales) / len(latencias_actuales) if latencias_actuales else 0.0
-
-        downtime_str = (
-            metricas._formatear_duracion(total_downtime_sec)
-            if hasattr(metricas, "_formatear_duracion")
-            else f"{int(total_downtime_sec)}s"
-        )
-
-        # Actualizar Ribbon KPI
+        kpis = payload["kpis"]
+        avg_uptime = kpis["uptime"]
         color_up = "#10B981" if avg_uptime >= 99.0 else "#F59E0B" if avg_uptime >= 95.0 else "#EF4444"
         self.kpi_cards["uptime"].configure(text=f"{avg_uptime:.2f}%", text_color=color_up)
-        self.kpi_cards["latencia"].configure(text=f"{avg_latencia:.1f} ms")
+        self.kpi_cards["latencia"].configure(text=f"{kpis['latencia']:.1f} ms")
         self.kpi_cards["microcortes"].configure(
-            text=f"{total_microcortes} eventos",
-            text_color="#10B981" if total_microcortes == 0 else "#F59E0B",
+            text=f"{kpis['microcortes']} eventos",
+            text_color="#10B981" if kpis["microcortes"] == 0 else "#F59E0B",
         )
         self.kpi_cards["downtime"].configure(
-            text=downtime_str,
-            text_color="#10B981" if total_downtime_sec == 0 else "#EF4444",
+            text=kpis["downtime"],
+            text_color="#10B981" if kpis["downtime_sec"] == 0 else "#EF4444",
         )
 
-        # ── B. Gráfico de Latencia Avanzado (Grafana Dark Theme) ───────────────
+        # ── 3. Gráfico de Latencia Avanzado (Grafana Dark Theme) ───────────────
+        if hasattr(self, "lbl_lat_title") and self.lbl_lat_title:
+            self.lbl_lat_title.configure(text=payload.get("latencia_title", "📈 Comportamiento de Latencia Temporal"))
+
         self.ax_latencia.clear()
         self.ax_latencia.set_facecolor("#18181B")
         self.ax_latencia.grid(True, linestyle="--", alpha=0.2, color="#64748B")
         self.ax_latencia.tick_params(colors="#94A3B8", labelsize=8)
 
         colores = ["#00D9FF", "#38BDF8", "#10B981", "#F59E0B", "#F43F5E", "#A855F7"]
-
-        equipos_a_dibujar = equipos
-        if self.filtro_host != "Todos los Equipos":
-            equipos_a_dibujar = [eq for eq in equipos if eq.get("label") == self.filtro_host or eq.get("ip") == self.filtro_host]
-
-        for i, equipo in enumerate(equipos_a_dibujar):
-            datos = metricas.obtener_datos(equipo["ip"], periodo_horas=24)
-            if datos and datos["timestamps"]:
-                lats = datos["latencias"]
-                ts_list = datos["timestamps"]
-                paso = max(1, len(lats) // 60)
-                x_vals = ts_list[::paso]
-                y_vals = [lats[k] if lats[k] is not None else 0 for k in range(0, len(lats), paso)]
-
-                color_line = colores[i % len(colores)]
+        for i, serie in enumerate(payload["serie_latencia"]):
+            color_line = colores[i % len(colores)]
+            if serie.get("x_vals") and serie.get("y_vals"):
                 self.ax_latencia.plot(
-                    x_vals,
-                    y_vals,
-                    label=equipo["label"][:18],
+                    serie["x_vals"],
+                    serie["y_vals"],
+                    label=serie["label"],
                     color=color_line,
                     linewidth=1.8,
                 )
-                self.ax_latencia.fill_between(x_vals, y_vals, alpha=0.10, color=color_line)
-                latencias_historicas.extend([y for y in y_vals if y > 0])
+                self.ax_latencia.fill_between(serie["x_vals"], serie["y_vals"], alpha=0.10, color=color_line)
 
-        # Umbral SLA a 100ms
         self.ax_latencia.axhline(
             y=100,
             color="#EF4444",
@@ -491,149 +611,88 @@ class HistoryTab:
             label="Umbral SLA (100 ms)",
         )
 
+        # Fijar ventana horizontal de tiempo adaptada al turno o 24h
+        min_x = payload.get("latencia_min_x")
+        max_x = payload.get("latencia_max_x")
+        if min_x and max_x:
+            self.ax_latencia.set_xlim(min_x, max_x)
+
         self.ax_latencia.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M"))
+        self.ax_latencia.xaxis.set_major_locator(mdates.AutoDateLocator(maxticks=12))
         self.ax_latencia.legend(
             facecolor="#27272A", edgecolor="#3F3F46", labelcolor="white", fontsize=8, loc="upper right", ncol=4
         )
-        self.canvas_latencia.draw()
+        self.canvas_latencia.draw_idle()
+        self.lbl_stats_latencia.configure(text=payload["stats_text"])
 
-        # Actualizar pie de estadísticas
-        if latencias_historicas:
-            min_l = min(latencias_historicas)
-            avg_l = sum(latencias_historicas) / len(latencias_historicas)
-            max_l = max(latencias_historicas)
-            p95_l = np.percentile(latencias_historicas, 95)
-            ult_l = latencias_actuales[-1] if latencias_actuales else avg_l
-            self.lbl_stats_latencia.configure(
-                text=f"Métricas (24h):  Mín: {min_l:.1f}ms  │  Prom: {avg_l:.1f}ms  │  P95: {p95_l:.1f}ms  │  Máx: {max_l:.1f}ms  │  Actual: {ult_l:.1f}ms"
-            )
-        else:
-            self.lbl_stats_latencia.configure(
-                text="Métricas (24h):  Sin registros históricos disponibles para el período."
-            )
+        # ── 4. Mapa de Calor Discreto (Pastillas Redondeadas) ─────────────────
+        hm = payload["heatmap_data"]
+        self.lbl_heatmap_title.configure(text=hm["title"])
+        self.lbl_heatmap_rango.configure(text=hm["rango_subtitulo"])
 
-        # ── C. Nuevo Mapa de Calor Discreto (Pastillas Redondeadas) ────────────
         self.ax_heatmap.clear()
         self.ax_heatmap.set_facecolor("#18181B")
 
-        # Paleta discreta de 5 niveles para fondo oscuro
         colores_heat_dark = ["#26262B", "#14452F", "#1B6E44", "#229C5B", "#38D984"]
+        nrows = hm["nrows"]
+        ncols = hm["ncols"]
+        tile_w, tile_h = 0.82, 0.72
 
-        if self.modo_heatmap == "Semanal (7D x 24h)":
-            self.lbl_heatmap_title.configure(text="🗓️ Matriz Semanal de Disponibilidad (Lunes a Domingo × 24 Horas)")
+        if "Semanal" in hm["mode"]:
             self.fig_heatmap.subplots_adjust(left=0.06, right=0.98, top=0.88, bottom=0.08)
-            target_ip = None if self.filtro_host == "Todos los Equipos" else next((eq["ip"] for eq in equipos if eq["label"] == self.filtro_host), None)
-            matriz_res = metricas.obtener_matriz_semanal(ip=target_ip)
-            matriz_disp = matriz_res["disponibilidad"]
-            dias_etiquetas = matriz_res["dias_etiquetas"]
-            horas_etiquetas = matriz_res["horas_etiquetas"]
-
-            nrows = len(dias_etiquetas)
-            ncols = len(horas_etiquetas)
-            tile_w, tile_h = 0.82, 0.72
-
-            for r in range(nrows):
-                for c in range(ncols):
-                    val = matriz_disp[r][c]
-                    if val <= 0.01:
-                        c_idx = 0
-                    elif val < 0.70:
-                        c_idx = 1
-                    elif val < 0.90:
-                        c_idx = 2
-                    elif val < 0.99:
-                        c_idx = 3
-                    else:
-                        c_idx = 4
-
-                    box = FancyBboxPatch(
-                        (c - tile_w / 2, nrows - 1 - r - tile_h / 2),
-                        tile_w,
-                        tile_h,
-                        boxstyle="round,pad=0.03,rounding_size=0.18",
-                        facecolor=colores_heat_dark[c_idx],
-                        edgecolor="#2E2E33",
-                        linewidth=0.5,
-                    )
-                    self.ax_heatmap.add_patch(box)
-
-            self.ax_heatmap.set_xlim(-0.7, ncols - 0.3)
-            self.ax_heatmap.set_ylim(-1.1, nrows - 0.3)
-            self.ax_heatmap.xaxis.tick_top()
-            self.ax_heatmap.set_xticks(range(ncols))
-            self.ax_heatmap.set_xticklabels([f"{h:02d}h" for h in range(24)], fontsize=7.5, color="#94A3B8")
-            self.ax_heatmap.tick_params(axis="x", top=True, bottom=False, labeltop=True, labelbottom=False, length=0)
-            self.ax_heatmap.set_yticks(range(nrows))
-            self.ax_heatmap.set_yticklabels(list(reversed(dias_etiquetas)), fontsize=8, fontweight="bold", color="#F8FAFC")
-            self.ax_heatmap.tick_params(axis="y", left=False, length=0)
-
-            # Metadata para hover tooltip
-            self._hm_mode = "Semanal (7D x 24h)"
-            self._hm_dias = list(reversed(["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]))
-            self._hm_disp_semanal = list(reversed(matriz_disp))
-
         else:
-            # Modo por Equipo (24 Horas)
-            self.lbl_heatmap_title.configure(text="🗓️ Matriz de Disponibilidad por Dispositivo (Últimas 24 Horas)")
             self.fig_heatmap.subplots_adjust(left=0.22, right=0.98, top=0.88, bottom=0.08)
-            labels_hm = [eq["label"][:26] for eq in equipos_a_dibujar]
-            nrows = len(labels_hm)
-            ncols = 24
-            tile_w, tile_h = 0.82, 0.72
 
-            dispo_matriz_equipos = []
-            for r, equipo in enumerate(equipos_a_dibujar):
-                datos = metricas.obtener_datos(equipo["ip"], periodo_horas=24)
-                if datos and datos["estados"]:
-                    bloques = np.array_split(datos["estados"], 24)
-                    dispo = [(sum(1 for s in b if s == 1) / len(b)) if len(b) > 0 else 0 for b in bloques]
+        matriz_disp = hm["matriz_disp"]
+        for r in range(nrows):
+            y_pos = (nrows - 1) - r
+            for c in range(ncols):
+                val = matriz_disp[r][c]
+                if val <= 0.01:
+                    c_idx = 0
+                elif val < 0.70:
+                    c_idx = 1
+                elif val < 0.90:
+                    c_idx = 2
+                elif val < 0.99:
+                    c_idx = 3
                 else:
-                    dispo = [0] * 24
-                dispo_matriz_equipos.append(dispo)
+                    c_idx = 4
 
-                for c in range(24):
-                    val = dispo[c]
-                    if val <= 0.01:
-                        c_idx = 0
-                    elif val < 0.70:
-                        c_idx = 1
-                    elif val < 0.90:
-                        c_idx = 2
-                    elif val < 0.99:
-                        c_idx = 3
-                    else:
-                        c_idx = 4
+                box = FancyBboxPatch(
+                    (c - tile_w / 2, y_pos - tile_h / 2),
+                    tile_w,
+                    tile_h,
+                    boxstyle="round,pad=0.03,rounding_size=0.18",
+                    facecolor=colores_heat_dark[c_idx],
+                    edgecolor="#2E2E33",
+                    linewidth=0.5,
+                )
+                self.ax_heatmap.add_patch(box)
 
-                    box = FancyBboxPatch(
-                        (c - tile_w / 2, nrows - 1 - r - tile_h / 2),
-                        tile_w,
-                        tile_h,
-                        boxstyle="round,pad=0.03,rounding_size=0.18",
-                        facecolor=colores_heat_dark[c_idx],
-                        edgecolor="#2E2E33",
-                        linewidth=0.5,
-                    )
-                    self.ax_heatmap.add_patch(box)
+        self.ax_heatmap.set_xlim(-0.7, max(0.5, ncols - 0.3))
+        self.ax_heatmap.set_ylim(-1.1, max(0.5, nrows - 0.3))
+        self.ax_heatmap.xaxis.tick_top()
+        self.ax_heatmap.set_xticks(range(ncols))
+        self.ax_heatmap.set_xticklabels(hm["col_labels"], fontsize=7.5, color="#94A3B8")
+        self.ax_heatmap.tick_params(axis="x", top=True, bottom=False, labeltop=True, labelbottom=False, length=0)
 
-            self.ax_heatmap.set_xlim(-0.7, ncols - 0.3)
-            self.ax_heatmap.set_ylim(-1.1, nrows - 0.3)
-            self.ax_heatmap.xaxis.tick_top()
-            self.ax_heatmap.set_xticks(range(ncols))
-            self.ax_heatmap.set_xticklabels([f"{h:02d}h" for h in range(24)], fontsize=7.5, color="#94A3B8")
-            self.ax_heatmap.tick_params(axis="x", top=True, bottom=False, labeltop=True, labelbottom=False, length=0)
-            self.ax_heatmap.set_yticks(range(nrows))
-            self.ax_heatmap.set_yticklabels(list(reversed(labels_hm)), fontsize=8, color="#F8FAFC")
-            self.ax_heatmap.tick_params(axis="y", left=False, length=0)
+        # Configuración exacta de Y: cada fila r tiene su tick en y_pos = (nrows - 1) - r
+        # Para r=0 (arriba): y_pos = nrows - 1 -> etiqueta hm["row_labels"][0]
+        # Para r=nrows-1 (abajo): y_pos = 0 -> etiqueta hm["row_labels"][nrows - 1]
+        self.ax_heatmap.set_yticks([(nrows - 1) - r for r in range(nrows)])
+        self.ax_heatmap.set_yticklabels(
+            hm["row_labels"],
+            fontsize=8,
+            color="#F8FAFC",
+            fontweight="bold" if "Semanal" in hm["mode"] else "normal",
+        )
+        self.ax_heatmap.tick_params(axis="y", left=False, length=0)
 
-            # Metadata para hover tooltip
-            self._hm_mode = "Por Equipo (24h)"
-            self._hm_equipos = list(reversed(equipos_a_dibujar))
-            self._hm_dispo = list(reversed(dispo_matriz_equipos))
-
-        # Leyenda de 5 pasos en el Heatmap (Ubicada limpia al pie derecho, sin colisión)
+        # Leyenda de 5 pasos en el Heatmap
         leg_w, leg_h = 0.70, 0.32
         leg_y = -0.92
-        leg_x = ncols - 6.8
+        leg_x = max(0.5, ncols - 6.8)
         self.ax_heatmap.text(leg_x - 0.4, leg_y + leg_h / 2, "Menos", fontsize=7.5, color="#94A3B8", ha="right", va="center")
         for i, col in enumerate(colores_heat_dark):
             p = FancyBboxPatch(
@@ -648,7 +707,15 @@ class HistoryTab:
             self.ax_heatmap.add_patch(p)
         self.ax_heatmap.text(leg_x + (len(colores_heat_dark) * 0.85) + 0.3, leg_y + leg_h / 2, "Más", fontsize=7.5, color="#94A3B8", ha="left", va="center")
 
-        # Tooltip flotante interactivo para equipos y celdas
+        # Metadatos para hover tooltip
+        self._hm_mode = hm["mode"]
+        self._hm_horas_turno = hm["horas_turno"]
+        self._hm_dias = hm["row_labels"]
+        self._hm_equipos = hm.get("equipos_lista", [])
+        self._hm_dispo = matriz_disp
+        self._hm_nrows = nrows
+        self._hm_ncols = ncols
+
         self.annot_hm = self.ax_heatmap.annotate(
             "",
             xy=(0, 0),
@@ -661,136 +728,182 @@ class HistoryTab:
             zorder=200,
         )
         self.annot_hm.set_visible(False)
-
         for spine in self.ax_heatmap.spines.values():
             spine.set_visible(False)
         self.ax_heatmap.tick_params(axis="both", which="both", length=0)
-        self.canvas_heatmap.draw()
+        self.canvas_heatmap.draw_idle()
 
-        # ── D. Gauges de Disponibilidad ─────────────────────────────────────────
-        for widget in self.gauges_container.winfo_children():
-            widget.destroy()
+        # ── 5. Gauges de Disponibilidad (Widget Pooling / Zero Destroy) ───────
+        if not hasattr(self, "_gauges_pool"):
+            self._gauges_pool = {}
 
-        cols_per_row = min(5, max(1, len(equipos_a_dibujar)))
-        for i in range(cols_per_row):
-            self.gauges_container.grid_columnconfigure(i, weight=1)
+        current_gauge_ips = [g["ip"] for g in payload["gauges_data"]]
+        cached_gauge_ips = list(self._gauges_pool.keys())
 
-        for i, equipo in enumerate(equipos_a_dibujar):
-            uptime = metricas.calcular_uptime(equipo["ip"])
-            row, col = i // cols_per_row, i % cols_per_row
+        if current_gauge_ips != cached_gauge_ips:
+            for widget in self.gauges_container.winfo_children():
+                widget.destroy()
+            self._gauges_pool = {}
 
-            g_frame = customtkinter.CTkFrame(self.gauges_container, fg_color="#1E1E22", corner_radius=6)
-            g_frame.grid(row=row, column=col, padx=4, pady=4, sticky="nsew")
+            cols_per_row = min(5, max(1, len(current_gauge_ips)))
+            for i in range(cols_per_row):
+                self.gauges_container.grid_columnconfigure(i, weight=1)
 
-            color_arc = "#10B981" if uptime >= 99.0 else "#F59E0B" if uptime >= 95.0 else "#EF4444"
+            for i, g in enumerate(payload["gauges_data"]):
+                ip = g["ip"]
+                row, col = i // cols_per_row, i % cols_per_row
+                g_frame = customtkinter.CTkFrame(self.gauges_container, fg_color="#1E1E22", corner_radius=6)
+                g_frame.grid(row=row, column=col, padx=4, pady=4, sticky="nsew")
 
-            canvas_w, canvas_h = 120, 68
-            canvas = tk.Canvas(g_frame, width=canvas_w, height=canvas_h, bg="#1E1E22", highlightthickness=0)
-            canvas.pack(pady=2)
+                ubi_txt = f"📍 {g.get('ubicacion', '').upper()}" if g.get("ubicacion") else "📍 SITIO"
+                lbl_ubi = customtkinter.CTkLabel(
+                    g_frame,
+                    text=ubi_txt,
+                    font=("Arial", 8, "bold"),
+                    text_color="#38BDF8",
+                    fg_color="#0F172A",
+                    corner_radius=4,
+                    height=16,
+                )
+                lbl_ubi.pack(anchor="nw", padx=6, pady=(4, 0))
 
-            # Arco base de fondo
-            canvas.create_arc(10, 10, 110, 110, start=0, extent=180, outline="#334155", width=9, style="arc")
-            # Arco medidor activo
-            extent = (uptime / 100.0) * 180
-            canvas.create_arc(10, 10, 110, 110, start=180, extent=-extent, outline=color_arc, width=9, style="arc")
-            canvas.create_text(60, 52, text=f"{uptime:.1f}%", fill="#F8FAFC", font=("Arial", 13, "bold"))
+                canvas = tk.Canvas(g_frame, width=120, height=68, bg="#1E1E22", highlightthickness=0)
+                canvas.pack(pady=2)
 
-            customtkinter.CTkLabel(
-                g_frame, text=equipo["label"][:16], font=("Arial", 10, "bold"), text_color="#CBD5E1"
-            ).pack(pady=(0, 4))
+                canvas.create_arc(10, 10, 110, 110, start=0, extent=180, outline="#334155", width=9, style="arc")
+                arc_act = canvas.create_arc(10, 10, 110, 110, start=180, extent=0, outline="#10B981", width=9, style="arc")
+                text_pct = canvas.create_text(60, 52, text="0.0%", fill="#F8FAFC", font=("Arial", 13, "bold"))
 
-        # ── E. Tabla Moderna de Desglose con Barras de Salud ────────────────────
-        for widget in self.tabla_container.winfo_children():
-            widget.destroy()
+                lbl_title = customtkinter.CTkLabel(
+                    g_frame, text=g["label"], font=("Arial", 10, "bold"), text_color="#CBD5E1"
+                )
+                lbl_title.pack(pady=(0, 4))
 
-        # Encabezado de la tabla
-        header_grid = customtkinter.CTkFrame(self.tabla_container, fg_color="#0F172A", corner_radius=6)
-        header_grid.pack(fill="x", pady=(0, 4))
+                self._gauges_pool[ip] = {
+                    "canvas": canvas,
+                    "arc_act": arc_act,
+                    "text_pct": text_pct,
+                    "lbl_title": lbl_title,
+                    "lbl_ubi": lbl_ubi,
+                }
 
+        for g in payload["gauges_data"]:
+            ip = g["ip"]
+            up = g["uptime"]
+            item = self._gauges_pool.get(ip)
+            if item:
+                color_arc = "#10B981" if up >= 99.0 else "#F59E0B" if up >= 95.0 else "#EF4444"
+                extent = (up / 100.0) * 180
+                item["canvas"].itemconfig(item["arc_act"], extent=-extent, outline=color_arc)
+                item["canvas"].itemconfig(item["text_pct"], text=f"{up:.1f}%")
+                item["lbl_title"].configure(text=g["label"])
+                if "lbl_ubi" in item:
+                    ubi_txt = f"📍 {g.get('ubicacion', '').upper()}" if g.get("ubicacion") else "📍 SITIO"
+                    item["lbl_ubi"].configure(text=ubi_txt)
+
+        # ── 6. Tabla Moderna de Desglose (Widget Pooling) ─────────────────────
+        if not hasattr(self, "_table_rows_pool"):
+            self._table_rows_pool = {}
+
+        current_table_ips = [t["ip"] for t in payload["tabla_data"]]
+        cached_table_ips = list(self._table_rows_pool.keys())
         cols_weights = [(0, 3), (1, 2), (2, 2), (3, 2), (4, 2), (5, 2), (6, 3)]
-        for c_idx, weight in cols_weights:
-            header_grid.grid_columnconfigure(c_idx, weight=weight)
 
-        headers = ["Activo / Label", "IP / Host", "Estado", "Latencia 1h", "Uptime SLA", "Microcortes", "Salud Visual"]
-        for c_idx, h_text in enumerate(headers):
-            customtkinter.CTkLabel(
-                header_grid, text=h_text, font=("Arial", 11, "bold"), text_color="#FFFFFF"
-            ).grid(row=0, column=c_idx, padx=8, pady=6, sticky="w")
+        if current_table_ips != cached_table_ips:
+            for widget in self.tabla_container.winfo_children():
+                widget.destroy()
+            self._table_rows_pool = {}
 
-        # Filas de equipos
-        for row_idx, equipo in enumerate(equipos_a_dibujar):
-            ip = equipo["ip"]
-            monitor = self.app.monitors.get(ip)
-            status = getattr(monitor, "status", "Desconectado") if monitor else "Desconectado"
-
-            datos_h = metricas.obtener_datos(ip, periodo_horas=1)
-            lat_str = f"{datos_h['latencias'][-1]:.1f} ms" if datos_h and datos_h["latencias"] and datos_h["latencias"][-1] else "---"
-
-            uptime_val = metricas.calcular_uptime(ip)
-            res_down = metricas.analizar_desconexiones_y_downtime(ip, periodo_horas=24) if hasattr(metricas, "analizar_desconexiones_y_downtime") else {}
-            micro_c = res_down.get("microcortes_count", 0)
-            down_str = res_down.get("downtime_str", "0s")
-
-            row_frame = customtkinter.CTkFrame(
-                self.tabla_container,
-                fg_color="#1E1E22" if row_idx % 2 == 0 else "#242427",
-                corner_radius=4,
-            )
-            row_frame.pack(fill="x", pady=2)
+            header_grid = customtkinter.CTkFrame(self.tabla_container, fg_color="#0F172A", corner_radius=6)
+            header_grid.pack(fill="x", pady=(0, 4))
             for c_idx, weight in cols_weights:
-                row_frame.grid_columnconfigure(c_idx, weight=weight)
+                header_grid.grid_columnconfigure(c_idx, weight=weight)
 
-            # Col 0: Label
-            customtkinter.CTkLabel(
-                row_frame, text=equipo["label"][:22], font=("Arial", 11, "bold"), text_color="#F8FAFC"
-            ).grid(row=0, column=0, padx=8, pady=4, sticky="w")
+            headers = ["Activo / Label", "IP / Host", "Estado", "Latencia", "Uptime SLA", "Microcortes", "Salud Visual"]
+            for c_idx, h_text in enumerate(headers):
+                customtkinter.CTkLabel(
+                    header_grid, text=h_text, font=("Arial", 11, "bold"), text_color="#FFFFFF"
+                ).grid(row=0, column=c_idx, padx=8, pady=6, sticky="w")
 
-            # Col 1: IP
-            customtkinter.CTkLabel(
-                row_frame, text=ip, font=("Courier New", 10), text_color="#94A3B8"
-            ).grid(row=0, column=1, padx=8, pady=4, sticky="w")
+            for row_idx, t in enumerate(payload["tabla_data"]):
+                ip = t["ip"]
+                row_frame = customtkinter.CTkFrame(
+                    self.tabla_container,
+                    fg_color="#1E1E22" if row_idx % 2 == 0 else "#242427",
+                    corner_radius=4,
+                )
+                row_frame.pack(fill="x", pady=2)
+                for c_idx, weight in cols_weights:
+                    row_frame.grid_columnconfigure(c_idx, weight=weight)
 
-            # Col 2: Estado
-            st_color = "#10B981" if status == "Conectado" else "#EF4444"
-            st_icon = "🟢" if status == "Conectado" else "🔴"
-            customtkinter.CTkLabel(
-                row_frame, text=f"{st_icon} {status}", font=("Arial", 11, "bold"), text_color=st_color
-            ).grid(row=0, column=2, padx=8, pady=4, sticky="w")
+                lbl_lbl = customtkinter.CTkLabel(row_frame, text=t["label"], font=("Arial", 11, "bold"), text_color="#F8FAFC")
+                lbl_lbl.grid(row=0, column=0, padx=8, pady=4, sticky="w")
 
-            # Col 3: Latencia
-            customtkinter.CTkLabel(
-                row_frame, text=lat_str, font=("Arial", 11), text_color="#E2E8F0"
-            ).grid(row=0, column=3, padx=8, pady=4, sticky="w")
+                lbl_ip = customtkinter.CTkLabel(row_frame, text=ip, font=("Courier New", 10), text_color="#94A3B8")
+                lbl_ip.grid(row=0, column=1, padx=8, pady=4, sticky="w")
 
-            # Col 4: Uptime
-            customtkinter.CTkLabel(
-                row_frame, text=f"{uptime_val:.1f}%", font=("Arial", 11, "bold"), text_color=color_up
-            ).grid(row=0, column=4, padx=8, pady=4, sticky="w")
+                lbl_st = customtkinter.CTkLabel(row_frame, text=t["status"], font=("Arial", 11, "bold"))
+                lbl_st.grid(row=0, column=2, padx=8, pady=4, sticky="w")
 
-            # Col 5: Microcortes & Downtime
-            down_txt = f"{micro_c} cort. ({down_str})" if micro_c > 0 else "0 (0s)"
-            down_col = "#F59E0B" if micro_c > 0 else "#10B981"
-            customtkinter.CTkLabel(
-                row_frame, text=down_txt, font=("Arial", 10), text_color=down_col
-            ).grid(row=0, column=5, padx=8, pady=4, sticky="w")
+                lbl_lat = customtkinter.CTkLabel(row_frame, text=t["lat_str"], font=("Arial", 11), text_color="#E2E8F0")
+                lbl_lat.grid(row=0, column=3, padx=8, pady=4, sticky="w")
 
-            # Col 6: Barra de salud visual
-            bar_w, bar_h = 100, 10
-            can_bar = tk.Canvas(row_frame, width=bar_w, height=bar_h, bg="#1E1E22", highlightthickness=0)
-            can_bar.grid(row=0, column=6, padx=8, pady=6, sticky="w")
+                lbl_up = customtkinter.CTkLabel(row_frame, text=f"{t['uptime_val']:.1f}%", font=("Arial", 11, "bold"))
+                lbl_up.grid(row=0, column=4, padx=8, pady=4, sticky="w")
 
-            can_bar.create_rectangle(0, 0, bar_w, bar_h, fill="#334155", width=0)
-            fill_w = max(2, int((uptime_val / 100.0) * bar_w))
-            bar_color = "#10B981" if uptime_val >= 99.0 else "#F59E0B" if uptime_val >= 95.0 else "#EF4444"
-            can_bar.create_rectangle(0, 0, fill_w, bar_h, fill=bar_color, width=0)
+                lbl_down = customtkinter.CTkLabel(row_frame, text=t["down_str"], font=("Arial", 10))
+                lbl_down.grid(row=0, column=5, padx=8, pady=4, sticky="w")
 
-        # Autorefresco cada 60 segundos controlado
+                can_bar = tk.Canvas(row_frame, width=100, height=10, bg="#1E1E22", highlightthickness=0)
+                can_bar.grid(row=0, column=6, padx=8, pady=6, sticky="w")
+                can_bar.create_rectangle(0, 0, 100, 10, fill="#334155", width=0)
+                rect_bar = can_bar.create_rectangle(0, 0, 100, 10, fill="#10B981", width=0)
+
+                self._table_rows_pool[ip] = {
+                    "lbl_lbl": lbl_lbl,
+                    "lbl_ip": lbl_ip,
+                    "lbl_st": lbl_st,
+                    "lbl_lat": lbl_lat,
+                    "lbl_up": lbl_up,
+                    "lbl_down": lbl_down,
+                    "can_bar": can_bar,
+                    "rect_bar": rect_bar,
+                }
+
+        for t in payload["tabla_data"]:
+            ip = t["ip"]
+            row_item = self._table_rows_pool.get(ip)
+            if row_item:
+                row_item["lbl_lbl"].configure(text=t["label"])
+                row_item["lbl_ip"].configure(text=ip)
+
+                st = t["status"]
+                st_col = "#10B981" if st == "Conectado" else "#EF4444"
+                st_ico = "🟢" if st == "Conectado" else "🔴"
+                row_item["lbl_st"].configure(text=f"{st_ico} {st}", text_color=st_col)
+                row_item["lbl_lat"].configure(text=t["lat_str"])
+
+                up_v = t["uptime_val"]
+                up_col = "#10B981" if up_v >= 99.0 else "#F59E0B" if up_v >= 95.0 else "#EF4444"
+                row_item["lbl_up"].configure(text=f"{up_v:.1f}%", text_color=up_col)
+
+                mc = t["micro_c"]
+                down_s = t["down_str"]
+                down_txt = f"{mc} cort. ({down_s})" if mc > 0 else f"0 ({down_s})"
+                down_col = "#F59E0B" if mc > 0 else "#10B981"
+                row_item["lbl_down"].configure(text=down_txt, text_color=down_col)
+
+                fill_w = max(2, int((up_v / 100.0) * 100))
+                row_item["can_bar"].coords(row_item["rect_bar"], 0, 0, fill_w, 10)
+                row_item["can_bar"].itemconfig(row_item["rect_bar"], fill=up_col)
+
+        # ── 7. Autorefresco Dinámico de Alta Frecuencia (15 segundos) ────────
         if hasattr(self, "_refresh_job") and self._refresh_job:
             try:
                 self.app.after_cancel(self._refresh_job)
             except Exception:
                 pass
-        self._refresh_job = self.app.after(60000, self.actualizar_graficos)
+        self._refresh_job = self.app.after(15000, self.actualizar_graficos)
 
 
 # Alias de clase para compatibilidad total con cualquier importación previa

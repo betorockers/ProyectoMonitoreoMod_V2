@@ -64,6 +64,40 @@ class AdminTab:
             add_frame, text="Crear Usuario", command=self._crear_usuario
         ).grid(row=6, column=0, columnspan=2, pady=20)
 
+        # Configuración de Red (Intervalo Ping)
+        network_ping_frame = customtkinter.CTkFrame(self.scroll_frame)
+        network_ping_frame.pack(fill="x", padx=20, pady=(0, 20))
+        network_ping_frame.grid_columnconfigure(1, weight=1)
+
+        customtkinter.CTkLabel(
+            network_ping_frame,
+            text="⚡ Configuración de Red e Intervalo de Monitoreo",
+            font=("Arial", 16, "bold"),
+        ).grid(row=0, column=0, columnspan=2, padx=10, pady=10, sticky="w")
+
+        customtkinter.CTkLabel(
+            network_ping_frame,
+            text="Frecuencia con la que se comprueba el estado ICMP/Ping de cada activo en la red (segundos).",
+            text_color="#9aa0a6",
+            justify="left",
+            wraplength=640,
+        ).grid(row=1, column=0, columnspan=2, padx=10, pady=(0, 10), sticky="w")
+
+        customtkinter.CTkLabel(network_ping_frame, text="Intervalo Ping (Segundos):").grid(
+            row=2, column=0, padx=10, pady=5, sticky="e"
+        )
+        self.ping_interval_entry = customtkinter.CTkEntry(network_ping_frame, width=120)
+        self.ping_interval_entry.grid(row=2, column=1, padx=10, pady=5, sticky="w")
+        self.ping_interval_entry.insert(0, str(getattr(self.app, "ping_interval", 15)))
+
+        customtkinter.CTkButton(
+            network_ping_frame,
+            text="Guardar Intervalo de Ping",
+            command=self._guardar_intervalo_ping,
+            fg_color="#0284C7",
+            hover_color="#0369A1",
+        ).grid(row=3, column=0, columnspan=2, pady=12)
+
         streaming_frame = customtkinter.CTkFrame(self.scroll_frame)
         streaming_frame.pack(fill="x", padx=20, pady=(0, 20))
 
@@ -154,6 +188,136 @@ class AdminTab:
         )
         self.camera_settings_save_button.grid(row=10, column=0, columnspan=2, pady=12)
 
+        # ── Frame para Configuración de Turno Operacional ─────────────────────
+        turno_frame = customtkinter.CTkFrame(self.scroll_frame)
+        turno_frame.pack(fill="x", padx=20, pady=(0, 20))
+        turno_frame.grid_columnconfigure(1, weight=1)
+
+        customtkinter.CTkLabel(
+            turno_frame,
+            text="⏰ Configuración de Turno Operacional (Telemetría Adaptativa)",
+            font=("Arial", 16, "bold"),
+        ).grid(row=0, column=0, columnspan=2, padx=10, pady=10, sticky="w")
+
+        customtkinter.CTkLabel(
+            turno_frame,
+            text="Define el rango horario del turno. Al seleccionar 'Semanal (7D x Turno)' o 'Por Equipo (Turno)' en Telemetría, todas las métricas, gauges, latencia y mapa de calor se adaptarán a esta franja horaria.",
+            text_color="#9aa0a6",
+            justify="left",
+            wraplength=640,
+        ).grid(row=1, column=0, columnspan=2, padx=10, pady=(0, 10), sticky="w")
+
+        horas_disponibles = [f"{h:02d}:00" for h in range(24)]
+
+        customtkinter.CTkLabel(turno_frame, text="Hora Inicio Turno:").grid(
+            row=2, column=0, padx=10, pady=5, sticky="e"
+        )
+        self.turno_inicio_option = customtkinter.CTkOptionMenu(
+            turno_frame,
+            values=horas_disponibles,
+            width=140,
+            command=self._on_turno_hours_changed,
+        )
+        self.turno_inicio_option.set(getattr(self.app, "turno_inicio", "07:00"))
+        self.turno_inicio_option.grid(row=2, column=1, padx=10, pady=5, sticky="w")
+
+        customtkinter.CTkLabel(turno_frame, text="Hora Fin Turno:").grid(
+            row=3, column=0, padx=10, pady=5, sticky="e"
+        )
+        self.turno_fin_option = customtkinter.CTkOptionMenu(
+            turno_frame,
+            values=horas_disponibles,
+            width=140,
+            command=self._on_turno_hours_changed,
+        )
+        self.turno_fin_option.set(getattr(self.app, "turno_fin", "18:00"))
+        self.turno_fin_option.grid(row=3, column=1, padx=10, pady=5, sticky="w")
+
+        self.lbl_turno_resumen = customtkinter.CTkLabel(
+            turno_frame,
+            text="",
+            font=("Arial", 11, "italic"),
+            text_color="#38BDF8",
+        )
+        self.lbl_turno_resumen.grid(row=4, column=0, columnspan=2, padx=10, pady=4, sticky="w")
+        self._actualizar_resumen_turno_label()
+
+        self.btn_guardar_turno = customtkinter.CTkButton(
+            turno_frame,
+            text="Guardar Configuración de Turno",
+            command=self._guardar_turno,
+            fg_color="#0284C7",
+            hover_color="#0369A1",
+        )
+        self.btn_guardar_turno.grid(row=5, column=0, columnspan=2, pady=12)
+
+        # ── Frame para Parámetros de Reporte Ejecutivo SLA (Fortune 500) ─────────────
+        report_frame = customtkinter.CTkFrame(self.scroll_frame)
+        report_frame.pack(fill="x", padx=20, pady=(0, 20))
+        report_frame.grid_columnconfigure(1, weight=1)
+
+        customtkinter.CTkLabel(
+            report_frame,
+            text="📑 Configuración del Reporte Ejecutivo SLA (Fortune 500)",
+            font=("Arial", 16, "bold"),
+        ).grid(row=0, column=0, columnspan=2, padx=10, pady=10, sticky="w")
+
+        customtkinter.CTkLabel(
+            report_frame,
+            text="Personaliza la identidad corporativa y directrices del reporte formal PDF. Define si se incluye la supervisión de CCTV o si se prioriza el análisis puro de infraestructura de red y SLA.",
+            text_color="#9aa0a6",
+            justify="left",
+            wraplength=640,
+        ).grid(row=1, column=0, columnspan=2, padx=10, pady=(0, 10), sticky="w")
+
+        customtkinter.CTkLabel(report_frame, text="Empresa / Cliente:").grid(
+            row=2, column=0, padx=10, pady=5, sticky="e"
+        )
+        self.report_empresa_entry = customtkinter.CTkEntry(report_frame, width=280, placeholder_text="Ej: Anvic Seguridad Integral")
+        self.report_empresa_entry.grid(row=2, column=1, padx=10, pady=5, sticky="w")
+        self.report_empresa_entry.insert(0, getattr(self.app, "empresa_cliente", "Anvic Seguridad Integral"))
+
+        customtkinter.CTkLabel(report_frame, text="Sitio / Planta / Faena:").grid(
+            row=3, column=0, padx=10, pady=5, sticky="e"
+        )
+        self.report_sitio_entry = customtkinter.CTkEntry(report_frame, width=280, placeholder_text="Ej: Planta Quilicura - Renca")
+        self.report_sitio_entry.grid(row=3, column=1, padx=10, pady=5, sticky="w")
+        self.report_sitio_entry.insert(0, getattr(self.app, "sitio_planta", "Planta Quilicura - Renca"))
+
+        customtkinter.CTkLabel(report_frame, text="SLA Objetivo (%):").grid(
+            row=4, column=0, padx=10, pady=5, sticky="e"
+        )
+        self.report_sla_entry = customtkinter.CTkEntry(report_frame, width=120, placeholder_text="Ej: 99.5")
+        self.report_sla_entry.grid(row=4, column=1, padx=10, pady=5, sticky="w")
+        self.report_sla_entry.insert(0, str(getattr(self.app, "sla_objetivo", 99.5)))
+
+        self.report_incluir_cctv_switch = customtkinter.CTkSwitch(
+            report_frame,
+            text="Incluir Supervisión CCTV / Cámaras en Reporte PDF",
+        )
+        self.report_incluir_cctv_switch.grid(row=5, column=0, columnspan=2, padx=10, pady=(10, 4), sticky="w")
+        if getattr(self.app, "incluir_cctv_en_reporte", False):
+            self.report_incluir_cctv_switch.select()
+        else:
+            self.report_incluir_cctv_switch.deselect()
+
+        customtkinter.CTkLabel(
+            report_frame,
+            text="Si está desactivado, el reporte omitirá los apartados de CCTV y destacará en su lugar la meta de SLA Contractual y el dictamen técnico de red.",
+            text_color="#9aa0a6",
+            justify="left",
+            wraplength=640,
+        ).grid(row=6, column=0, columnspan=2, padx=10, pady=(0, 8), sticky="w")
+
+        self.btn_guardar_reporte_config = customtkinter.CTkButton(
+            report_frame,
+            text="Guardar Parámetros de Reporte",
+            command=self._guardar_reporte_config,
+            fg_color="#059669",
+            hover_color="#047857",
+        )
+        self.btn_guardar_reporte_config.grid(row=7, column=0, columnspan=2, pady=12)
+
         self.user_list_frame = customtkinter.CTkScrollableFrame(
             self.scroll_frame, label_text="Usuarios Existentes"
         )
@@ -223,6 +387,43 @@ class AdminTab:
             self.app,
             "Streaming",
             f"Configuracion actualizada. TLS: {mode} | Geo externa: {geo} | SSH: {ssh_mode}",
+            color="green",
+        )
+
+    def _actualizar_resumen_turno_label(self) -> None:
+        try:
+            ini = self.turno_inicio_option.get() if hasattr(self, "turno_inicio_option") else getattr(self.app, "turno_inicio", "07:00")
+            fin = self.turno_fin_option.get() if hasattr(self, "turno_fin_option") else getattr(self.app, "turno_fin", "18:00")
+            h_ini = int(ini.split(":")[0])
+            h_fin = int(fin.split(":")[0])
+            duracion = (h_fin - h_ini) if h_ini <= h_fin else (24 - h_ini + h_fin)
+            tipo = "Diurno" if h_ini <= h_fin else "Nocturno / Cruza Medianoche"
+            if hasattr(self, "lbl_turno_resumen"):
+                self.lbl_turno_resumen.configure(
+                    text=f"📊 Cobertura del Turno: {duracion} horas ({ini} a {fin}) • Modalidad: {tipo}"
+                )
+        except Exception:
+            pass
+
+    def _on_turno_hours_changed(self, _choice=None) -> None:
+        self._actualizar_resumen_turno_label()
+
+    def _guardar_turno(self) -> None:
+        ini = self.turno_inicio_option.get()
+        fin = self.turno_fin_option.get()
+        if hasattr(self.app, "save_turno_runtime_settings"):
+            self.app.save_turno_runtime_settings(ini, fin, nombre="Turno Operativo")
+        else:
+            self.app.turno_inicio = ini
+            self.app.turno_fin = fin
+            if hasattr(self.app, "monitor_tab"):
+                self.app.monitor_tab.guardar_equipos()
+            elif hasattr(self.app, "guardar_equipos"):
+                self.app.guardar_equipos()
+        ToastNotification(
+            self.app,
+            "Turno Operacional",
+            f"Configuración guardada exitosamente: {ini} a {fin}.\nTelemetría adaptada a este turno.",
             color="green",
         )
 
@@ -301,10 +502,19 @@ class AdminTab:
                 return
                 
             success, msg = self.app.auth.update_user(
-                self.app.current_user["role"],
-                user["username"], nu, np, nf, nr
+                current_user_role=self.app.current_user["role"],
+                old_username=user["username"],
+                new_username=nu,
+                new_password=np,
+                new_fullname=nf,
+                new_role=nr
             )
             if success:
+                if self.app.current_user and self.app.current_user.get("username") == user["username"]:
+                    self.app.current_user["username"] = nu
+                    self.app.current_user["full_name"] = nf
+                    if np:
+                        self.app.current_user["password_plain"] = np
                 ToastNotification(self.app, "Exito", msg, color="green")
                 self._actualizar_lista_usuarios()
                 edit_win.destroy()
@@ -320,3 +530,53 @@ class AdminTab:
             self._actualizar_lista_usuarios()
         else:
             ToastNotification(self.app, "Error", msg, color="red")
+
+    def _guardar_reporte_config(self) -> None:
+        empresa = self.report_empresa_entry.get().strip()
+        sitio = self.report_sitio_entry.get().strip()
+        try:
+            sla_val = float(self.report_sla_entry.get().replace(",", "."))
+            if not (0.0 <= sla_val <= 100.0):
+                raise ValueError()
+        except ValueError:
+            ToastNotification(
+                self.app, "Error", "El SLA objetivo debe ser un porcentaje numérico válido entre 0 y 100.", color="red"
+            )
+            return
+
+        incluir_cctv = bool(self.report_incluir_cctv_switch.get())
+
+        if hasattr(self.app, "save_reporte_runtime_settings"):
+            self.app.save_reporte_runtime_settings(empresa, sitio, sla_val, incluir_cctv)
+            ToastNotification(
+                self.app,
+                "Parámetros Guardados",
+                "Configuración de Reporte Ejecutivo actualizada exitosamente.",
+                color="green",
+            )
+
+    def _guardar_intervalo_ping(self) -> None:
+        try:
+            val = int(self.ping_interval_entry.get().strip())
+            if val < 1:
+                val = 1
+                self.ping_interval_entry.delete(0, "end")
+                self.ping_interval_entry.insert(0, "1")
+            self.app.ping_interval = val
+            if hasattr(self.app, "monitor_tab"):
+                self.app.monitor_tab.guardar_equipos()
+            elif hasattr(self.app, "guardar_equipos"):
+                self.app.guardar_equipos()
+            ToastNotification(
+                self.app,
+                "Configuración Guardada",
+                f"Intervalo de ping actualizado a {val} segundos.",
+                color="green",
+            )
+        except ValueError:
+            ToastNotification(
+                self.app,
+                "Error",
+                "El intervalo de ping debe ser un número entero mayor o igual a 1.",
+                color="red",
+            )

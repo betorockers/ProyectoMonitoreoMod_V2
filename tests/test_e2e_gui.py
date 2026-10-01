@@ -86,3 +86,42 @@ def test_04_cctv_tab(app):
     
     # Verificar si la lista de cámaras se actualizó
     assert any(c.get("nombre") == "Cámara E2E" for c in cctv_tab.cameras), "La cámara no se añadió correctamente a la base de datos local CCTV."
+
+
+def test_05_telemetria_dropdowns(app):
+    """Prueba E2E de los nuevos selectores desplegables en la pestaña Telemetría."""
+    import customtkinter as ctk
+
+    if hasattr(app, "telemetria_controller"):
+        hist_tab = app.telemetria_controller
+        if not hist_tab.telemetria_frame:
+            hist_tab.inicializar()
+        app.update()
+
+        # 1. Verificar existencia de ambos CTkOptionMenu
+        assert hasattr(hist_tab, "opt_semanal"), "Falta opt_semanal en TelemetryTab"
+        assert hasattr(hist_tab, "opt_equipo"), "Falta opt_equipo en TelemetryTab"
+        assert isinstance(hist_tab.opt_semanal, ctk.CTkOptionMenu)
+        assert isinstance(hist_tab.opt_equipo, ctk.CTkOptionMenu)
+
+        # 2. Opciones disponibles
+        assert hist_tab.opt_semanal.cget("values") == ["Semanal (7D x 24h)", "Semanal (7D x Turno)"]
+        assert hist_tab.opt_equipo.cget("values") == ["Por Equipo (24h)", "Por Equipo (Turno)"]
+
+        # 3. Estado inicial
+        assert "Semanal" in hist_tab.modo_heatmap
+        assert hist_tab.opt_semanal.cget("fg_color") == "#0284C7"
+        assert hist_tab.opt_equipo.cget("fg_color") == "#334155"
+
+        # 4. Cambio a Por Equipo (Turno)
+        hist_tab._on_equipo_change("Por Equipo (Turno)")
+        assert hist_tab.modo_heatmap == "Por Equipo (Turno)"
+        assert hist_tab.opt_semanal.cget("fg_color") == "#334155"
+        assert hist_tab.opt_equipo.cget("fg_color") == "#0284C7"
+
+        # 5. Cambio a Semanal (7D x 24h)
+        hist_tab._on_semanal_change("Semanal (7D x 24h)")
+        assert hist_tab.modo_heatmap == "Semanal (7D x 24h)"
+        assert hist_tab.opt_semanal.cget("fg_color") == "#0284C7"
+        assert hist_tab.opt_equipo.cget("fg_color") == "#334155"
+
